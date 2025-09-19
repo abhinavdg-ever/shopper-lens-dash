@@ -293,11 +293,11 @@ export default function Index() {
 
           {/* Video Feed Tab */}
           <TabsContent value="video" className="space-y-8">
-            <SectionHeader 
+              <SectionHeader 
               title="Interactive Video Dashboard" 
               description="Real-time video monitoring with AI-powered people tracking and analytics"
-              className="mb-6"
-            />
+                className="mb-6"
+              />
             
             {/* Main Video Interface */}
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
@@ -327,7 +327,7 @@ export default function Index() {
                               <option value="store">Store</option>
                               <option value="warehouse">Warehouse</option>
                             </select>
-                          </div>
+              </div>
                           
                           {sourceType === 'store' && (
                             <div>
@@ -342,7 +342,7 @@ export default function Index() {
                                   <option key={id} value={id}>Store ID #{id}</option>
                                 ))}
                               </select>
-                            </div>
+                </div>
                           )}
                           
                           {sourceType === 'warehouse' && (
@@ -368,7 +368,7 @@ export default function Index() {
                               <option>Google Cloud Storage</option>
                               <option>Azure Blob Storage</option>
                             </select>
-                          </div>
+              </div>
                           <div>
                             <label className="text-sm font-medium text-foreground">Bucket Name</label>
                             <input type="text" placeholder="my-video-bucket" className="w-full mt-1 p-2 border border-border rounded-lg bg-background" />
@@ -458,8 +458,8 @@ export default function Index() {
                           <span className="text-sm font-medium">Employee</span>
                         </label>
                       </div>
-                    </div>
-                    
+                </div>
+
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">Customer Properties</label>
               <div className="space-y-2">
@@ -494,7 +494,7 @@ export default function Index() {
                   </div>
                   
                 </div>
-              </div>
+                </div>
 
               {/* Main Video Display - Split Screen */}
               <div className="xl:col-span-3">
@@ -508,8 +508,8 @@ export default function Index() {
                         <span>{currentTime.toLocaleTimeString()}</span>
                         <span>•</span>
                         <span>1 Camera</span>
-                      </div>
-                    </div>
+                </div>
+              </div>
             <div className="flex items-center space-x-2">
               <div className={`w-2 h-2 rounded-full ${
                 isTrackingPaused ? 'bg-yellow-500' : 
@@ -553,7 +553,7 @@ export default function Index() {
                     {/* Video Type Indicator */}
                     <div className="absolute top-4 left-4 bg-black/70 text-white text-sm px-3 py-1 rounded-lg font-semibold">
                       {isProcessedVideoMain ? "Processed Video" : "Original Video"}
-                    </div>
+              </div>
 
                     {/* Switch Video Button */}
                     <button 
@@ -757,15 +757,15 @@ export default function Index() {
                 className="mb-6"
               />
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <MetricCard
+                  <MetricCard
                   title="Live Customer Count"
                   value={liveMetrics.customerCount.toString()}
                   subtitle="Currently in store"
-                  trend="up"
+                    trend="up"
                   trendValue="+8 from last hour"
                   badge={{ text: "Live", variant: "default" }}
-                />
-                <MetricCard
+                  />
+                  <MetricCard
                   title="Gender Split"
                   value={liveMetrics.genderSplit}
                   subtitle="Current store visitors"
@@ -773,22 +773,22 @@ export default function Index() {
                   trendValue="Female majority"
                   badge={{ text: "Live", variant: "default" }}
                 />
-                <MetricCard
+                  <MetricCard
                   title="Conversion Rate"
                   value={`${liveMetrics.conversionRate}%`}
                   subtitle="Video tracked purchases"
-                  trend="up"
+                    trend="up"
                   trendValue="+2.3% from avg"
                   badge={{ text: "Live", variant: "default" }}
-                />
-                <MetricCard
+                  />
+                  <MetricCard
                   title="Average Time in Store"
                   value={`${liveMetrics.avgTimeInStore.toFixed(1)} min`}
                   subtitle="Per customer visit"
-                  trend="up"
+                    trend="up"
                   trendValue="+0.5 min improvement"
                   badge={{ text: "Live", variant: "default" }}
-                />
+                  />
               </div>
             </section>
 
@@ -870,7 +870,7 @@ export default function Index() {
                     </ComposedChart>
                   </ResponsiveContainer>
                 </ChartCard>
-              </div>
+                </div>
             </section>
 
 
@@ -922,7 +922,7 @@ export default function Index() {
                     </PieChart>
                   </ResponsiveContainer>
                 </ChartCard>
-              </div>
+                </div>
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                 <ChartCard title="Customer Mood Distribution" description="Emotional state of customers in the store">
