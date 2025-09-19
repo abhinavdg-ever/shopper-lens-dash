@@ -1,19 +1,16 @@
-# 🚀 VPS Deployment Guide - Shopper Lens Dashboard
+# 🚀 VPS Deployment Guide - Shopper Lens Dashboard (Docker)
 
 ## 📁 Video File Locations
 
-### For Development:
+### Required Structure:
 ```
-public/
-├── Original Video.mp4
-└── Processed Video.mp4
-```
-
-### For Production (VPS):
-```
-/usr/share/nginx/html/
-├── Original Video.mp4
-└── Processed Video.mp4
+shopper-lens-dash/
+├── public/
+│   ├── Original Video.mp4
+│   └── Processed Video.mp4
+├── Dockerfile
+├── docker-compose.yml
+└── deploy.sh
 ```
 
 ## 🐳 Docker Deployment
@@ -21,7 +18,7 @@ public/
 ### Prerequisites:
 - Docker installed on VPS
 - Docker Compose installed on VPS
-- Port 80 available
+- Port 3005 available
 
 ### Quick Deploy:
 ```bash
@@ -29,9 +26,9 @@ public/
 git clone <your-repo-url>
 cd shopper-lens-dash
 
-# Make sure videos are in public/ folder
-ls public/
-# Should show: Original Video.mp4, Processed Video.mp4
+# Upload video files to public/ directory
+scp 'Original Video.mp4' user@72.60.96.212:~/shopper-lens-dash/public/
+scp 'Processed Video.mp4' user@72.60.96.212:~/shopper-lens-dash/public/
 
 # Deploy
 ./deploy.sh

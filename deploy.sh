@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Shopper Lens Dashboard - VPS Deployment Script
+# Shopper Lens Dashboard - Docker VPS Deployment Script
 
-echo "🚀 Starting deployment of Shopper Lens Dashboard..."
+echo "🚀 Starting Docker deployment of Shopper Lens Dashboard..."
 
 # Check if Docker is installed
 if ! command -v docker &> /dev/null; then
@@ -14,6 +14,20 @@ fi
 if ! command -v docker-compose &> /dev/null; then
     echo "❌ Docker Compose is not installed. Please install Docker Compose first."
     exit 1
+fi
+
+# Check if video files exist
+if [ ! -f "public/Original Video.mp4" ] || [ ! -f "public/Processed Video.mp4" ]; then
+    echo "⚠️  Video files not found in public/ directory!"
+    echo "   Please upload the following files to public/ directory:"
+    echo "   - Original Video.mp4"
+    echo "   - Processed Video.mp4"
+    echo ""
+    echo "   You can upload them via SCP:"
+    echo "   scp 'Original Video.mp4' user@72.60.96.212:~/shopper-lens-dash/public/"
+    echo "   scp 'Processed Video.mp4' user@72.60.96.212:~/shopper-lens-dash/public/"
+    echo ""
+    read -p "Press Enter to continue after uploading videos..."
 fi
 
 # Stop existing containers
@@ -33,8 +47,10 @@ echo "📋 Recent logs:"
 docker-compose logs --tail=20
 
 echo "🎉 Deployment complete!"
-echo "🌐 Your application should be available at: http://your-vps-ip"
-echo "📁 Video files are served from: /usr/share/nginx/html/"
+echo "🌐 Your application is available at: http://72.60.96.212:3005"
+echo "📹 Videos are available at:"
+echo "   - http://72.60.96.212:3005/Original%20Video.mp4"
+echo "   - http://72.60.96.212:3005/Processed%20Video.mp4"
 
 # Optional: Show how to update videos
 echo ""
