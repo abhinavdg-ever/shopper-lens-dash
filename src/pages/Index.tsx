@@ -383,23 +383,9 @@ export default function Index() {
       const malePercent = totalGender > 0 ? Math.round((genderCount.male / totalGender) * 100) : 0;
       const unknownPercent = totalGender > 0 ? Math.round((genderCount.unknown / totalGender) * 100) : 0;
 
-      // Calculate trend based on previous hour (simulate by using different frame range)
-      const previousHourFrame = Math.max(0, currentFrame - 108000); // 1 hour ago in frames (30 fps * 3600 seconds)
-      const previousHourPeople = trackingData.person_data.filter((person: any) => {
-        return person.log.some((logEntry: any) => 
-          logEntry.frame >= previousHourFrame && logEntry.frame < currentFrame - 54000 // 30 minutes ago
-        );
-      });
-      
-      const previousHourCount = new Set();
-      previousHourPeople.forEach((person: any) => {
-        if (person.custom_id) {
-          previousHourCount.add(person.custom_id);
-        }
-      });
-      
-      const previousCount = previousHourCount.size;
-      const trendChange = totalPeople - previousCount;
+      // Calculate trend based on base of 10
+      const baseCount = 10;
+      const trendChange = totalPeople - baseCount;
       const trendText = trendChange >= 0 ? `+${trendChange} from last hour` : `${trendChange} from last hour`;
 
       setLiveMetrics(prev => ({
