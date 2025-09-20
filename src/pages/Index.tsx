@@ -9,6 +9,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
+import TrackingOverlay from "./TrackingOverlay";
 import { 
   BarChart, 
   Bar, 
@@ -285,8 +286,9 @@ export default function Index() {
 
       <main className="container mx-auto px-6 py-8">
         <Tabs defaultValue="video" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="video">Video Feed</TabsTrigger>
+            <TabsTrigger value="tracking">Tracking Overlay</TabsTrigger>
             <TabsTrigger value="customer">Customer Analytics</TabsTrigger>
             <TabsTrigger value="employee">Employee & Operations</TabsTrigger>
           </TabsList>
@@ -1129,6 +1131,11 @@ export default function Index() {
                 </div>
               </div>
             </section>
+          </TabsContent>
+
+          {/* Tracking Overlay Tab */}
+          <TabsContent value="tracking" className="space-y-8">
+            <TrackingOverlay />
           </TabsContent>
         </Tabs>
       </main>
