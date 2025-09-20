@@ -176,8 +176,8 @@ export default function Index() {
   
   // Live metrics state for auto-refresh
   const [liveMetrics, setLiveMetrics] = React.useState({
-    customerCount: 47,
-    genderSplit: "65% F / 30% M / 5% U",
+    customerCount: 35,
+    genderSplit: "Loading...",
     conversionRate: 9,
     avgTimeInStore: 7.2,
     trendValue: "+8 from last hour"
@@ -221,14 +221,8 @@ export default function Index() {
     if (isTrackingPaused || isCustomTime) return; // Don't update metrics when paused or in custom time
     
     const interval = setInterval(() => {
-      // Generate gender split that adds to 100%
-      const female = Math.floor(Math.random() * 20) + 50; // 50-70%
-      const male = Math.floor(Math.random() * 20) + 20; // 20-40%
-      const unknown = 100 - female - male; // Remaining to make 100%
-      
         setLiveMetrics(prev => ({
-          customerCount: Math.max(35, Math.min(65, prev.customerCount + Math.floor(Math.random() * 4) - 2)), // 35-65 range, ±2 variation
-          genderSplit: `${female}% F / ${male}% M / ${unknown}% U`,
+          ...prev,
           conversionRate: Math.floor(Math.random() * 3) + 8, // 8-10% range, whole numbers only
           avgTimeInStore: Math.max(5.0, Math.min(12.0, prev.avgTimeInStore + (Math.random() * 0.4 - 0.2))) // 5.0-12.0 min range, ±0.2 min variation
         }));
@@ -1097,7 +1091,7 @@ export default function Index() {
                 </label>
               </div>
                 </div>
-                
+
                     <div>
                       <label className="text-sm font-medium text-foreground mb-2 block">Proximity Detector <span className="text-xs text-muted-foreground">(Coming Soon)</span></label>
                       <div className="space-y-2 opacity-50">
@@ -1109,7 +1103,7 @@ export default function Index() {
                           <input type="checkbox" className="w-4 h-4 text-primary" disabled />
                           <span className="text-sm font-medium">Entry/Exit</span>
                         </label>
-                      </div>
+              </div>
                     </div>
                   </div>
                   
@@ -1380,11 +1374,11 @@ export default function Index() {
 
           {/* Customer Analytics Tab */}
           <TabsContent value="customer" className="space-y-8">
-            <SectionHeader 
+              <SectionHeader 
               title="Customer Analytics" 
               description="Comprehensive customer behavior analysis and insights"
-              className="mb-6"
-            />
+                className="mb-6"
+              />
 
             {/* Date Range Filter */}
             <div className="flex items-center space-x-4 mb-6">
@@ -1409,7 +1403,7 @@ export default function Index() {
                   />
                 </PopoverContent>
               </Popover>
-            </div>
+              </div>
 
             {/* Key Customer Metrics */}
             <section>
@@ -1420,15 +1414,15 @@ export default function Index() {
               />
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <MetricCard
+                  <MetricCard
                   title="Customer Satisfaction"
                   value={`${satisfactionIndex}%`}
                   subtitle="During peak hours Below target during rush"
                   trend="+2.3%"
                   trendDirection="up"
                   icon="😊"
-                />
-                <MetricCard
+                  />
+                  <MetricCard
                   title="Total Footfall"
                   value={customerMetrics.footfall.toLocaleString()}
                   subtitle="Today's visitors"
@@ -1436,15 +1430,15 @@ export default function Index() {
                   trendDirection="up"
                   icon="👥"
                 />
-                <MetricCard
+                  <MetricCard
                   title="Conversion Rate"
                   value={`${customerMetrics.conversion}%`}
                   subtitle="Entry to purchase"
                   trend="+2.3%"
                   trendDirection="up"
                   icon="💰"
-                />
-                <MetricCard
+                  />
+                  <MetricCard
                   title="Time to Checkout"
                   value={`${customerMetrics.checkoutTime} min`}
                   subtitle="Per customer visit"
@@ -1604,7 +1598,7 @@ export default function Index() {
                     </PieChart>
                   </ResponsiveContainer>
                 </ChartCard>
-              </div>
+                </div>
             </section>
           </TabsContent>
 
@@ -1639,7 +1633,7 @@ export default function Index() {
                   />
                 </PopoverContent>
               </Popover>
-            </div>
+                </div>
 
             {/* Key Employee Metrics */}
             <section>
@@ -1729,11 +1723,11 @@ export default function Index() {
 
           {/* Insights & Recommendations Tab */}
           <TabsContent value="insights" className="space-y-8">
-            <SectionHeader 
+              <SectionHeader 
               title="Insights & Recommendations" 
               description="AI-powered insights and actionable recommendations"
-              className="mb-6"
-            />
+                className="mb-6"
+              />
 
             <div className="space-y-6">
               <Collapsible open={isGoingWellOpen} onOpenChange={setIsGoingWellOpen}>
@@ -1749,11 +1743,11 @@ export default function Index() {
                   </svg>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="p-4 bg-green-50 border border-green-200 rounded-b-lg">
-                  <div className="space-y-4">
+                <div className="space-y-4">
                     <div className="p-4 bg-white rounded-lg border border-green-200">
                       <h4 className="font-semibold text-green-800 mb-2">High Customer Satisfaction</h4>
                       <p className="text-green-700 text-sm">Customer satisfaction scores are consistently above 85%, indicating excellent service quality and customer experience.</p>
-                    </div>
+                </div>
                     <div className="p-4 bg-white rounded-lg border border-green-200">
                       <h4 className="font-semibold text-green-800 mb-2">Efficient Staff Response</h4>
                       <p className="text-green-700 text-sm">Staff response times average 1.2 minutes, well within target range, showing effective customer assistance.</p>
@@ -1779,15 +1773,15 @@ export default function Index() {
                   </svg>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="p-4 bg-red-50 border border-red-200 rounded-b-lg">
-                  <div className="space-y-4">
+                <div className="space-y-4">
                     <div className="p-4 bg-white rounded-lg border border-red-200">
                       <h4 className="font-semibold text-red-800 mb-2">Queue Management During Peak Hours</h4>
                       <p className="text-red-700 text-sm">Queue lengths can reach up to 18 customers during peak hours (7PM), causing potential customer dissatisfaction and longer wait times.</p>
-                    </div>
+                </div>
                     <div className="p-4 bg-white rounded-lg border border-red-200">
                       <h4 className="font-semibold text-red-800 mb-2">Checkout Time Optimization</h4>
                       <p className="text-red-700 text-sm">Average checkout time is 27 minutes, which is at the higher end of the acceptable range. Consider streamlining checkout processes.</p>
-                    </div>
+              </div>
                     <div className="p-4 bg-white rounded-lg border border-red-200">
                       <h4 className="font-semibold text-red-800 mb-2">Peak Hour Staffing</h4>
                       <p className="text-red-700 text-sm">Consider increasing staff deployment during peak hours (5PM-9PM) to better handle customer volume and reduce queue times.</p>
