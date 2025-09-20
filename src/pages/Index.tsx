@@ -179,7 +179,8 @@ export default function Index() {
     customerCount: 47,
     genderSplit: "65% F / 30% M / 5% U",
     conversionRate: 9,
-    avgTimeInStore: 7.2
+    avgTimeInStore: 7.2,
+    trendValue: "+8 from last hour"
   });
 
   // Function to generate static simulated data based on date range (only changes with date range)
@@ -258,85 +259,60 @@ export default function Index() {
     return () => clearInterval(timer);
   }, [isCustomTime, customTime, isTrackingPaused]);
 
-  // Sync videos when they load and ensure continuous playback
+  // Ensure video loops continuously
   useEffect(() => {
-    const syncVideos = () => {
+    const ensureVideoLoop = () => {
       const mainVideo = document.getElementById('main-video') as HTMLVideoElement;
-      const secondaryVideo = document.getElementById('secondary-video') as HTMLVideoElement;
       
-      if (mainVideo && secondaryVideo) {
-        // Ensure videos are set to loop continuously
+      if (mainVideo) {
+        // Ensure video is set to loop continuously
         mainVideo.loop = true;
-        secondaryVideo.loop = true;
-        
-        // Sync secondary video to main video
-        const syncSecondary = () => {
-          if (Math.abs(secondaryVideo.currentTime - mainVideo.currentTime) > 0.1) {
-            secondaryVideo.currentTime = mainVideo.currentTime;
-          }
-        };
-        
-        // Sync main video to secondary video
-        const syncMain = () => {
-          if (Math.abs(mainVideo.currentTime - secondaryVideo.currentTime) > 0.1) {
-            mainVideo.currentTime = secondaryVideo.currentTime;
-          }
-        };
         
         // Handle video end to ensure continuous playback
         const handleVideoEnd = () => {
           mainVideo.currentTime = 0;
-          secondaryVideo.currentTime = 0;
-          mainVideo.play();
-          secondaryVideo.play();
+          mainVideo.play().catch(console.log);
         };
         
-        mainVideo.addEventListener('timeupdate', syncSecondary);
-        secondaryVideo.addEventListener('timeupdate', syncMain);
         mainVideo.addEventListener('ended', handleVideoEnd);
-        secondaryVideo.addEventListener('ended', handleVideoEnd);
         
-        // Start both videos at the same time
-        const playVideos = async () => {
+        // Start video
+        const playVideo = async () => {
           try {
             await mainVideo.play();
-            await secondaryVideo.play();
           } catch (error) {
             console.log('Video autoplay prevented, user interaction required');
           }
         };
         
-        if (mainVideo.readyState >= 2 && secondaryVideo.readyState >= 2) {
-          playVideos();
+        if (mainVideo.readyState >= 2) {
+          playVideo();
         } else {
-          mainVideo.addEventListener('canplay', playVideos);
-          secondaryVideo.addEventListener('canplay', playVideos);
+          mainVideo.addEventListener('canplay', playVideo);
         }
         
-        // Ensure videos restart if they pause
+        // Ensure video restarts if it pauses (unless manually paused)
         const ensureContinuousPlay = () => {
-          if (mainVideo.paused) {
-            mainVideo.play();
-          }
-          if (secondaryVideo.paused) {
-            secondaryVideo.play();
+          if (mainVideo.paused && !isTrackingPaused && !isCustomTime) {
+            mainVideo.play().catch(console.log);
           }
         };
         
-        // Check every 5 seconds to ensure continuous playback
-        const playCheckInterval = setInterval(ensureContinuousPlay, 5000);
+        // Check every 3 seconds to ensure continuous playback
+        const playCheckInterval = setInterval(ensureContinuousPlay, 3000);
         
         return () => {
           clearInterval(playCheckInterval);
+          mainVideo.removeEventListener('ended', handleVideoEnd);
         };
       }
     };
     
-    // Run sync after a short delay to ensure videos are loaded
-    const timer = setTimeout(syncVideos, 100);
+    // Run after a short delay to ensure video is loaded
+    const timer = setTimeout(ensureVideoLoop, 100);
     
     return () => clearTimeout(timer);
-  }, [showOriginalVideo, isProcessedVideoMain]);
+  }, [isTrackingPaused, isCustomTime]);
 
   // Load tracking data on component mount
   useEffect(() => {
@@ -407,10 +383,30 @@ export default function Index() {
       const malePercent = totalGender > 0 ? Math.round((genderCount.male / totalGender) * 100) : 0;
       const unknownPercent = totalGender > 0 ? Math.round((genderCount.unknown / totalGender) * 100) : 0;
 
+      // Calculate trend based on previous hour (simulate by using different frame range)
+      const previousHourFrame = Math.max(0, currentFrame - 108000); // 1 hour ago in frames (30 fps * 3600 seconds)
+      const previousHourPeople = trackingData.person_data.filter((person: any) => {
+        return person.log.some((logEntry: any) => 
+          logEntry.frame >= previousHourFrame && logEntry.frame < currentFrame - 54000 // 30 minutes ago
+        );
+      });
+      
+      const previousHourCount = new Set();
+      previousHourPeople.forEach((person: any) => {
+        if (person.custom_id) {
+          previousHourCount.add(person.custom_id);
+        }
+      });
+      
+      const previousCount = previousHourCount.size;
+      const trendChange = totalPeople - previousCount;
+      const trendText = trendChange >= 0 ? `+${trendChange} from last hour` : `${trendChange} from last hour`;
+
       setLiveMetrics(prev => ({
         ...prev,
         customerCount: totalPeople,
-        genderSplit: `${femalePercent}% F / ${malePercent}% M / ${unknownPercent}% U`
+        genderSplit: `${femalePercent}% F / ${malePercent}% M / ${unknownPercent}% U`,
+        trendValue: trendText
       }));
     };
 
@@ -459,8 +455,8 @@ export default function Index() {
       if (trackingOptions.viewStoreZones && trackingData.zones) {
         trackingData.zones.forEach((zone: any) => {
           if (zone.polygon && zone.polygon.length > 0) {
-            // Draw zone fill with darker color
-            ctx.fillStyle = 'rgba(255, 107, 107, 0.3)';
+            // Draw zone fill with light grayish color
+            ctx.fillStyle = 'rgba(156, 163, 175, 0.3)';
             ctx.beginPath();
             zone.polygon.forEach((point: any, index: number) => {
               const x = point[0] * (canvas.width / (video.videoWidth || 1920));
@@ -475,8 +471,8 @@ export default function Index() {
             ctx.closePath();
             ctx.fill();
             
-            // Draw zone border with darker color
-            ctx.strokeStyle = 'rgba(255, 107, 107, 0.8)';
+            // Draw zone border with light grayish color
+            ctx.strokeStyle = 'rgba(156, 163, 175, 0.8)';
             ctx.lineWidth = 3;
             ctx.setLineDash([8, 4]);
             
@@ -501,9 +497,9 @@ export default function Index() {
               const scaledCenterX = centerX * (canvas.width / (video.videoWidth || 1920));
               const scaledCenterY = centerY * (canvas.height / (video.videoHeight || 1080));
               
-              // Draw darker background for zone name
-              ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-              ctx.fillRect(scaledCenterX - 40, scaledCenterY - 15, 80, 20);
+                  // Draw different background for zone name
+                  ctx.fillStyle = 'rgba(156, 163, 175, 0.9)';
+                  ctx.fillRect(scaledCenterX - 50, scaledCenterY - 18, 100, 24);
               
               ctx.fillStyle = '#ffffff';
               ctx.font = '12px Arial';
@@ -730,12 +726,12 @@ export default function Index() {
                   const scaledCenterX = centerX * (canvas.width / (video.videoWidth || 1920));
                   const scaledCenterY = centerY * (canvas.height / (video.videoHeight || 1080));
                   
-                  // Draw darker background for zone name
-                  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                  ctx.fillRect(scaledCenterX - 40, scaledCenterY - 15, 80, 20);
+                  // Draw different background for zone name
+                  ctx.fillStyle = 'rgba(156, 163, 175, 0.9)';
+                  ctx.fillRect(scaledCenterX - 50, scaledCenterY - 18, 100, 24);
                   
                   ctx.fillStyle = '#ffffff';
-                  ctx.font = '12px Arial';
+                  ctx.font = 'bold 12px Arial';
                   ctx.textAlign = 'center';
                   ctx.fillText(zone.zone_name, scaledCenterX, scaledCenterY);
                 }
@@ -1080,7 +1076,7 @@ export default function Index() {
                           />
                           <span className="text-sm font-medium">Employee</span>
                         </label>
-                      </div>
+              </div>
                 </div>
 
             <div>
@@ -1114,8 +1110,8 @@ export default function Index() {
                   <span className="text-sm font-medium">Attire</span>
                 </label>
               </div>
-            </div>
-                    
+                </div>
+                
                     <div>
                       <label className="text-sm font-medium text-foreground mb-2 block">Proximity Detector <span className="text-xs text-muted-foreground">(Coming Soon)</span></label>
                       <div className="space-y-2 opacity-50">
@@ -1186,7 +1182,7 @@ export default function Index() {
                         const video = document.getElementById('main-video') as HTMLVideoElement;
                         if (video) {
                           video.currentTime = 0;
-                          video.play();
+                          video.play().catch(console.log);
                         }
                       }}
                     >
@@ -1204,7 +1200,7 @@ export default function Index() {
                     {/* Video Type Indicator */}
                     <div className="absolute top-4 left-4 bg-black/70 text-white text-sm px-3 py-1 rounded-lg font-semibold">
                       {isProcessedVideoMain ? "Processed Video" : "Original Video"}
-                    </div>
+              </div>
 
                     {/* Switch Video Button */}
                     <button 
@@ -1233,6 +1229,193 @@ export default function Index() {
                 
                 {/* Video Control Buttons */}
                 <div className="mt-4 flex justify-center space-x-3">
+                  <button
+                    className="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
+                    onClick={() => {
+                      // Force refresh of tracking overlays
+                      const canvas = document.getElementById('tracking-canvas') as HTMLCanvasElement;
+                      if (canvas) {
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) {
+                          ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        }
+                      }
+                      
+                      // Force redraw after clearing
+                      setTimeout(() => {
+                        const mainVideo = document.getElementById('main-video') as HTMLVideoElement;
+                        if (mainVideo && trackingData) {
+                          const drawTrackingOverlay = (canvasId: string, videoId: string) => {
+                            const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
+                            const video = document.getElementById(videoId) as HTMLVideoElement;
+                            
+                            if (!canvas || !video) return;
+
+                            // Set canvas size to match video
+                            canvas.width = video.offsetWidth;
+                            canvas.height = video.offsetHeight;
+
+                            const ctx = canvas.getContext('2d');
+                            if (!ctx) return;
+
+                            // Clear canvas
+                            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                            // Only show overlays if Customer is ticked AND we're in Processed Video mode
+                            if (!trackingOptions.customer || !isProcessedVideoMain) return;
+
+                            // Get current frame data based on video time
+                            const videoTime = video.currentTime;
+                            const fps = 30; // Assuming 30 FPS
+                            const currentFrame = Math.floor(videoTime * fps);
+
+                            // Find people currently in the frame
+                            const currentPeople = trackingData.person_data.filter((person: any) => {
+                              return person.log.some((logEntry: any) => logEntry.frame === currentFrame);
+                            });
+
+                            // Draw zone polygons first (static, not moving with customers)
+                            if (trackingOptions.viewStoreZones && trackingData.zones) {
+                              trackingData.zones.forEach((zone: any) => {
+                                if (zone.polygon && zone.polygon.length > 0) {
+                                  // Draw zone fill with darker color
+                                  ctx.fillStyle = 'rgba(255, 107, 107, 0.3)';
+                                  ctx.beginPath();
+                                  zone.polygon.forEach((point: any, index: number) => {
+                                    const x = point[0] * (canvas.width / (video.videoWidth || 1920));
+                                    const y = point[1] * (canvas.height / (video.videoHeight || 1080));
+                                    
+                                    if (index === 0) {
+                                      ctx.moveTo(x, y);
+                                    } else {
+                                      ctx.lineTo(x, y);
+                                    }
+                                  });
+                                  ctx.closePath();
+                                  ctx.fill();
+                                  
+                                  // Draw zone border with darker color
+                                  ctx.strokeStyle = 'rgba(255, 107, 107, 0.8)';
+                                  ctx.lineWidth = 3;
+                                  ctx.setLineDash([8, 4]);
+                                  
+                                  ctx.beginPath();
+                                  zone.polygon.forEach((point: any, index: number) => {
+                                    const x = point[0] * (canvas.width / (video.videoWidth || 1920));
+                                    const y = point[1] * (canvas.height / (video.videoHeight || 1080));
+                                    
+                                    if (index === 0) {
+                                      ctx.moveTo(x, y);
+                                    } else {
+                                      ctx.lineTo(x, y);
+                                    }
+                                  });
+                                  ctx.closePath();
+                                  ctx.stroke();
+                                  
+                                  // Draw zone name with different background
+                                  if (zone.polygon.length > 0) {
+                                    const centerX = zone.polygon.reduce((sum: number, point: any) => sum + point[0], 0) / zone.polygon.length;
+                                    const centerY = zone.polygon.reduce((sum: number, point: any) => sum + point[1], 0) / zone.polygon.length;
+                                    const scaledCenterX = centerX * (canvas.width / (video.videoWidth || 1920));
+                                    const scaledCenterY = centerY * (canvas.height / (video.videoHeight || 1080));
+                                    
+                                    // Draw different background for zone name
+                                    ctx.fillStyle = 'rgba(59, 130, 246, 0.9)';
+                                    ctx.fillRect(scaledCenterX - 50, scaledCenterY - 18, 100, 24);
+                                    
+                                    ctx.fillStyle = '#ffffff';
+                                    ctx.font = '12px Arial';
+                                    ctx.textAlign = 'center';
+                                    ctx.fillText(zone.zone_name, scaledCenterX, scaledCenterY);
+                                  }
+                                }
+                              });
+                              ctx.setLineDash([]); // Reset line dash
+                            }
+
+                            // Draw tracking boxes and labels for each detected person
+                            currentPeople.forEach((person: any) => {
+                              // Find the log entry for current frame
+                              const currentLogEntry = person.log.find((logEntry: any) => logEntry.frame === currentFrame);
+                              if (!currentLogEntry || !currentLogEntry.bbox || !Array.isArray(currentLogEntry.bbox) || currentLogEntry.bbox.length < 4) return;
+
+                              const [x1, y1, x2, y2] = currentLogEntry.bbox;
+                              const width = x2 - x1;
+                              const height = y2 - y1;
+
+                              // Scale coordinates to canvas size
+                              const scaleX = canvas.width / (video.videoWidth || 1920);
+                              const scaleY = canvas.height / (video.videoHeight || 1080);
+
+                              const scaledX1 = x1 * scaleX;
+                              const scaledY1 = y1 * scaleY;
+                              const scaledWidth = width * scaleX;
+                              const scaledHeight = height * scaleY;
+
+                              // Draw bounding box (thinner)
+                              ctx.strokeStyle = '#00ff00';
+                              ctx.lineWidth = 1;
+                              ctx.strokeRect(scaledX1, scaledY1, scaledWidth, scaledHeight);
+
+                              // Draw label background - different info based on video mode
+                              const labelText = [];
+                              
+                              if (isProcessedVideoMain) {
+                                // Processed Video mode - show selected tracking info with cycling
+                                const selectedOptions = [];
+                                if (trackingOptions.gender && person.gender) {
+                                  selectedOptions.push({ type: 'gender', value: person.gender });
+                                }
+                                if (trackingOptions.age && person.age) {
+                                  selectedOptions.push({ type: 'age', value: person.age });
+                                }
+                                if (trackingOptions.attire && person.upper_wear && person.lower_wear) {
+                                  selectedOptions.push({ type: 'attire', value: `${person.upper_wear}/${person.lower_wear}` });
+                                }
+                                
+                                // Cycle through selected options every 1 second for smoother display
+                                if (selectedOptions.length > 0) {
+                                  const cycleIndex = Math.floor(Date.now() / 1000) % selectedOptions.length;
+                                  const currentOption = selectedOptions[cycleIndex];
+                                  labelText.push(`${currentOption.type}: ${currentOption.value}`);
+                                }
+                              } else {
+                                // Original Video mode - show minimal info
+                                if (person.custom_id) {
+                                  labelText.push(`ID: ${person.custom_id}`);
+                                }
+                              }
+
+                              if (labelText.length > 0) {
+                                const text = labelText.join(' | ');
+                                const textMetrics = ctx.measureText(text);
+                                const labelHeight = 20;
+                                const labelWidth = textMetrics.width + 10;
+
+                                // Draw label background
+                                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                                ctx.fillRect(scaledX1, scaledY1 - labelHeight, labelWidth, labelHeight);
+
+                                // Draw label text
+                                ctx.fillStyle = '#ffffff';
+                                ctx.font = '12px Arial';
+                                ctx.textAlign = 'left';
+                                ctx.fillText(text, scaledX1 + 5, scaledY1 - 5);
+                              }
+                            });
+                          };
+                          
+                          drawTrackingOverlay('tracking-canvas', 'main-video');
+                        }
+                      }, 50);
+                    }}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>Refresh Overlays</span>
+                  </button>
                   <button
                     className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
                     onClick={() => {
@@ -1304,9 +1487,9 @@ export default function Index() {
                                       const scaledCenterX = centerX * (canvas.width / (mainVideo.videoWidth || 1920));
                                       const scaledCenterY = centerY * (canvas.height / (mainVideo.videoHeight || 1080));
                                       
-                                      // Draw darker background for zone name
-                                      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                                      ctx.fillRect(scaledCenterX - 40, scaledCenterY - 15, 80, 20);
+                  // Draw different background for zone name
+                  ctx.fillStyle = 'rgba(156, 163, 175, 0.9)';
+                  ctx.fillRect(scaledCenterX - 50, scaledCenterY - 18, 100, 24);
                                       
                                       ctx.fillStyle = '#ffffff';
                                       ctx.font = '12px Arial';
@@ -1507,7 +1690,7 @@ export default function Index() {
                   value={liveMetrics.customerCount.toString()}
                   subtitle="Currently in store"
                   trend="up"
-                  trendValue="+8 from last hour"
+                  trendValue={liveMetrics.trendValue || "+8 from last hour"}
                   badge={{ text: "Live", variant: "default" }}
                   />
                   <MetricCard
@@ -2145,16 +2328,13 @@ export default function Index() {
                     setIsCustomTime(true);
                     setCurrentTime(selectedDate);
                     
-                    // Restart videos from beginning when time is chosen
+                    // Restart video from beginning when time is chosen
                     const mainVideo = document.getElementById('main-video') as HTMLVideoElement;
-                    const secondaryVideo = document.getElementById('secondary-video') as HTMLVideoElement;
                     
-                    if (mainVideo && secondaryVideo) {
-                      // Reset videos to beginning and play
+                    if (mainVideo) {
+                      // Reset video to beginning and play
                       mainVideo.currentTime = 0;
-                      secondaryVideo.currentTime = 0;
-                      mainVideo.play();
-                      secondaryVideo.play();
+                      mainVideo.play().catch(console.log);
                     }
                     
                     setShowDateTimeModal(false);
