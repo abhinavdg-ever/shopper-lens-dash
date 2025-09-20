@@ -5,6 +5,7 @@ import { SectionHeader } from "@/components/dashboard/SectionHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
@@ -70,18 +71,18 @@ const staffEfficiencyData = [
   { staff: "Cashier 1", transactions: 45, avgTime: 2.1, satisfaction: 4.2 },
   { staff: "Cashier 2", transactions: 38, avgTime: 2.8, satisfaction: 3.8 },
   { staff: "Floor Staff", interactions: 67, responseTime: 1.2, satisfaction: 4.5 },
-  { staff: "Electronics", interactions: 23, responseTime: 0.8, satisfaction: 4.7 },
-  { staff: "Apparel", interactions: 34, responseTime: 1.5, satisfaction: 4.1 }
+  { staff: "Electronics", interactions: 23, responseTime: 1.0, satisfaction: 4.7 },
+  { staff: "Apparel", interactions: 34, responseTime: 1.4, satisfaction: 4.1 }
 ];
 
 const queueAnalysisData = [
-  { time: "9AM", queueLength: 3, waitTime: 2.1, satisfaction: 4.2 },
-  { time: "11AM", queueLength: 8, waitTime: 4.5, satisfaction: 3.8 },
-  { time: "1PM", queueLength: 12, waitTime: 6.2, satisfaction: 3.5 },
-  { time: "3PM", queueLength: 7, waitTime: 3.8, satisfaction: 4.0 },
-  { time: "5PM", queueLength: 15, waitTime: 8.1, satisfaction: 3.2 },
-  { time: "7PM", queueLength: 18, waitTime: 9.5, satisfaction: 2.9 },
-  { time: "9PM", queueLength: 5, waitTime: 2.8, satisfaction: 4.1 }
+  { time: "9AM", queueLength: 3, waitTime: 2.1, satisfaction: 84 },
+  { time: "11AM", queueLength: 8, waitTime: 4.5, satisfaction: 76 },
+  { time: "1PM", queueLength: 12, waitTime: 6.2, satisfaction: 70 },
+  { time: "3PM", queueLength: 7, waitTime: 3.8, satisfaction: 80 },
+  { time: "5PM", queueLength: 15, waitTime: 8.1, satisfaction: 64 },
+  { time: "7PM", queueLength: 18, waitTime: 9.5, satisfaction: 58 },
+  { time: "9PM", queueLength: 5, waitTime: 2.8, satisfaction: 82 }
 ];
 
 const zonePerformanceData = [
@@ -93,15 +94,17 @@ const zonePerformanceData = [
 
 // Customer Demographics Data
 const genderData = [
-  { name: "Female", value: 58, fill: "#ff6b6b" },
-  { name: "Male", value: 42, fill: "#4ecdc4" }
+  { name: "Female", value: 55, fill: "#ff6b6b" },
+  { name: "Male", value: 40, fill: "#4ecdc4" },
+  { name: "Unknown", value: 5, fill: "#95a5a6" }
 ];
 
 const ageGroupData = [
-  { name: "18-25", value: 25, fill: "#ff9ff3" },
-  { name: "26-35", value: 35, fill: "#54a0ff" },
-  { name: "36-50", value: 28, fill: "#5f27cd" },
-  { name: "50+", value: 12, fill: "#00d2d3" }
+  { name: "18-25", value: 22, fill: "#ff9ff3" },
+  { name: "26-35", value: 32, fill: "#54a0ff" },
+  { name: "36-50", value: 25, fill: "#5f27cd" },
+  { name: "50+", value: 15, fill: "#00d2d3" },
+  { name: "Unknown", value: 6, fill: "#95a5a6" }
 ];
 
 const customerMoodData = [
@@ -140,9 +143,20 @@ export default function Index() {
   const [storeIdSearch, setStoreIdSearch] = React.useState('');
   const [isCustomTime, setIsCustomTime] = React.useState(false);
   const [customTime, setCustomTime] = React.useState<Date | null>(null);
+  const [showConfigNotification, setShowConfigNotification] = React.useState(false);
+  const [isGoingWellOpen, setIsGoingWellOpen] = React.useState(true);
+  const [isNeedsImprovementOpen, setIsNeedsImprovementOpen] = React.useState(true);
+  const [customerDateRange, setCustomerDateRange] = React.useState<{ from: Date; to: Date } | undefined>({
+    from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+    to: new Date(Date.now() - 24 * 60 * 60 * 1000) // yesterday
+  });
+  const [employeeDateRange, setEmployeeDateRange] = React.useState<{ from: Date; to: Date } | undefined>({
+    from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+    to: new Date(Date.now() - 24 * 60 * 60 * 1000) // yesterday
+  });
   const [videoSources, setVideoSources] = React.useState([
     { id: 1, name: "Store ID #3312 (New Jersey)", status: "live", quality: "1080p" },
-    { id: 2, name: "Store ID #3323 (Seattle)", status: "offline", quality: "720p" },
+    { id: 2, name: "Store ID #3323 (Seattle)", status: "pending", quality: "720p" },
     { id: 3, name: "Warehouse #6 (Atlanta)", status: "offline", quality: "720p" }
   ]);
   
@@ -153,6 +167,39 @@ export default function Index() {
     conversionRate: 9,
     avgTimeInStore: 7.2
   });
+
+  // Function to generate static simulated data based on date range (only changes with date range)
+  const generateStaticData = (dateRange: { from: Date; to: Date } | undefined, baseValue: number, variation: number = 0.2) => {
+    if (!dateRange) return baseValue;
+    
+    const daysDiff = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+    // Use a deterministic seed based on date range for consistent values
+    const seed = Math.floor((dateRange.from.getTime() + dateRange.to.getTime()) / (1000 * 60 * 60 * 24));
+    const randomFactor = ((seed * 9301 + 49297) % 233280) / 233280 * variation + (1 - variation);
+    const dayMultiplier = Math.min(daysDiff / 7, 2); // Scale up to 2x for longer periods
+    
+    return Math.round(baseValue * randomFactor * dayMultiplier);
+  };
+
+  // Generate customer metrics based on date range (static until date changes)
+  const customerMetrics = {
+    footfall: generateStaticData(customerDateRange, 450, 0.2), // Daily average
+    satisfaction: generateStaticData(customerDateRange, 86, 0.15),
+    conversion: generateStaticData(customerDateRange, 21, 0.2),
+    checkoutTime: Math.round(generateStaticData(customerDateRange, 27, 0.1)) // 25-30 minute range
+  };
+
+  // Generate employee metrics based on date range (static until date changes)
+  const employeeMetrics = {
+    staffDeployed: generateStaticData(employeeDateRange, 8, 0.25), // Median staff deployed
+    responseTime: generateStaticData(employeeDateRange, 1.2, 0.2).toFixed(1), // Around 1.2 minutes
+    maxQueueLength: generateStaticData(employeeDateRange, 12, 0.4), // Highest count in queue
+    efficiency: generateStaticData(employeeDateRange, 94, 0.1),
+    individualPerformance: generateStaticData(employeeDateRange, 88, 0.15) // Individual performance score
+  };
+
+  // Calculate satisfaction index based on queue time and score
+  const satisfactionIndex = Math.max(60, Math.min(100, customerMetrics.satisfaction - (customerMetrics.checkoutTime - 25) * 0.5));
 
   // Auto-refresh live metrics every 2 seconds (only when not paused)
   useEffect(() => {
@@ -285,12 +332,40 @@ export default function Index() {
       </header>
 
       <main className="container mx-auto px-6 py-8">
+        {/* Configuration Notification */}
+        {showConfigNotification && (
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center space-x-3">
+            <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-yellow-800">
+                Source Added Successfully!
+              </p>
+              <p className="text-xs text-yellow-700">
+                Someone from the AlgoSights team will contact you to configure this source.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowConfigNotification(false)}
+              className="ml-auto text-yellow-600 hover:text-yellow-800"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
+
         <Tabs defaultValue="video" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="video">Video Feed</TabsTrigger>
-            <TabsTrigger value="tracking">Tracking Overlay</TabsTrigger>
+            <TabsTrigger value="tracking">Tracking Overlay (Test)</TabsTrigger>
             <TabsTrigger value="customer">Customer Analytics</TabsTrigger>
-            <TabsTrigger value="employee">Employee & Operations</TabsTrigger>
+            <TabsTrigger value="employee">Employee & Operations Excellence</TabsTrigger>
+            <TabsTrigger value="insights">Insights & Recommendations</TabsTrigger>
           </TabsList>
 
           {/* Video Feed Tab */}
@@ -383,64 +458,78 @@ export default function Index() {
                             <Button variant="outline" onClick={() => setIsAddSourceModalOpen(false)}>
                               Cancel
                             </Button>
-                            <Button onClick={() => {
-                              // Add new source to the list
-                              const newId = Math.max(...videoSources.map(s => s.id)) + 1;
-                              const newSource = {
-                                id: newId,
-                                name: sourceType === 'store' 
-                                  ? `Store ID #${selectedStoreId}` 
-                                  : `Warehouse #${selectedWarehouseId}`,
-                                status: 'offline',
-                                quality: '720p'
-                              };
-                              setVideoSources([...videoSources, newSource]);
-                              setIsAddSourceModalOpen(false);
-                              // Reset form
-                              setSourceType('store');
-                              setSelectedStoreId('');
-                              setSelectedWarehouseId('');
-                            }}>
-                              Connect & Save
-                            </Button>
+          <Button onClick={() => {
+            // Add new source to the list
+            const newId = Math.max(...videoSources.map(s => s.id)) + 1;
+            const newSource = {
+              id: newId,
+              name: sourceType === 'store'
+                ? `Store ID #${selectedStoreId}`
+                : `Warehouse #${selectedWarehouseId}`,
+              status: 'pending',
+              quality: '720p'
+            };
+            setVideoSources([...videoSources, newSource]);
+            setIsAddSourceModalOpen(false);
+            setShowConfigNotification(true);
+            // Reset form
+            setSourceType('store');
+            setSelectedStoreId('');
+            setSelectedWarehouseId('');
+            setStoreIdSearch('');
+            
+            // Hide notification after 5 seconds
+            setTimeout(() => setShowConfigNotification(false), 5000);
+          }}>
+            Connect & Save
+          </Button>
                           </div>
                         </div>
                       </DialogContent>
                     </Dialog>
                   </div>
-                  <div className="space-y-2">
-                    {videoSources.map((source) => (
-                      <div key={source.id} className={`p-3 border rounded-lg cursor-pointer transition-all group ${
-                        source.status === 'live' 
-                          ? 'bg-primary/10 border-primary/20 hover:bg-primary/15' 
-                          : 'bg-muted/30 border-border/30 hover:bg-muted/50'
-                      }`}>
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium text-sm">{source.name}</span>
-                          <div className="flex items-center space-x-2">
-                            <div className={`w-2 h-2 rounded-full ${
-                              source.status === 'live' 
-                                ? 'bg-green-500 animate-pulse' 
-                                : 'bg-gray-400'
-                            }`}></div>
-                            <button 
-                              className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs px-1"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSourceToDelete(source.name);
-                                setShowDeleteSourceConfirm(true);
-                              }}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {source.status === 'live' ? 'Live' : 'Offline'} • {source.quality}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
+        <div className="space-y-2">
+          {videoSources.map((source) => (
+            <div key={source.id} className={`p-3 border rounded-lg cursor-pointer transition-all group ${
+              source.status === 'live'
+                ? 'bg-primary/10 border-primary/20 hover:bg-primary/15'
+                : source.status === 'pending'
+                ? 'bg-yellow-50 border-yellow-200 hover:bg-yellow-100'
+                : 'bg-muted/30 border-border/30 hover:bg-muted/50'
+            }`}>
+              <div className="flex items-center justify-between">
+                <span className="font-medium text-sm">{source.name}</span>
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${
+                    source.status === 'live'
+                      ? 'bg-green-500 animate-pulse'
+                      : source.status === 'pending'
+                      ? 'bg-yellow-500'
+                      : 'bg-gray-400'
+                  }`}></div>
+                  <button
+                    className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs px-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSourceToDelete(source.name);
+                      setShowDeleteSourceConfirm(true);
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {source.status === 'live' 
+                  ? 'Live' 
+                  : source.status === 'pending'
+                  ? 'Yet to be configured*'
+                  : 'Offline'
+                } • {source.quality}
+              </p>
+            </div>
+          ))}
+        </div>
                 </div>
 
 
@@ -759,11 +848,11 @@ export default function Index() {
                 className="mb-6"
               />
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <MetricCard
+                <MetricCard
                   title="Live Customer Count"
                   value={liveMetrics.customerCount.toString()}
                   subtitle="Currently in store"
-                    trend="up"
+                  trend="up"
                   trendValue="+8 from last hour"
                   badge={{ text: "Live", variant: "default" }}
                   />
@@ -775,22 +864,22 @@ export default function Index() {
                   trendValue="Female majority"
                   badge={{ text: "Live", variant: "default" }}
                 />
-                  <MetricCard
+                <MetricCard
                   title="Conversion Rate"
                   value={`${liveMetrics.conversionRate}%`}
                   subtitle="Video tracked purchases"
-                    trend="up"
+                  trend="up"
                   trendValue="+2.3% from avg"
                   badge={{ text: "Live", variant: "default" }}
-                  />
-                  <MetricCard
-                  title="Average Time in Store"
-                  value={`${liveMetrics.avgTimeInStore.toFixed(1)} min`}
-                  subtitle="Per customer visit"
-                    trend="up"
-                  trendValue="+0.5 min improvement"
+                />
+                <MetricCard
+                  title="Staff Response Time"
+                  value={`${employeeMetrics.responseTime} min`}
+                  subtitle="Avg customer assistance"
+                  trend="up"
+                  trendValue="Excellent performance"
                   badge={{ text: "Live", variant: "default" }}
-                  />
+                />
               </div>
             </section>
 
@@ -798,44 +887,94 @@ export default function Index() {
 
           {/* Customer Analytics Tab */}
           <TabsContent value="customer" className="space-y-8">
-            {/* Key Customer Metrics */}
-            <section>
+            {/* Date Range Filter */}
+            <div className="flex items-center justify-between mb-6">
               <SectionHeader 
                 title="Key Customer Metrics" 
-                className="mb-6"
+                description="Essential customer behavior and satisfaction metrics from video analysis"
+                className="mb-0"
               />
+              <div className="flex items-center space-x-4">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-[280px] justify-start text-left font-normal">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {customerDateRange?.from ? (
+                        customerDateRange.to ? (
+                          <>
+                            {format(customerDateRange.from, "LLL dd, y")} -{" "}
+                            {format(customerDateRange.to, "LLL dd, y")}
+                          </>
+                        ) : (
+                          format(customerDateRange.from, "LLL dd, y")
+                        )
+                      ) : (
+                        <span>Pick a date range</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="range"
+                      defaultMonth={customerDateRange?.from}
+                      selected={customerDateRange}
+                      onSelect={(range) => {
+                        if (range?.from && range?.to) {
+                          const today = new Date();
+                          const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+                          const maxDate = yesterday;
+                          
+                          if (range.to > maxDate) {
+                            range.to = maxDate;
+                          }
+                          if (range.from > maxDate) {
+                            range.from = maxDate;
+                          }
+                        }
+                        setCustomerDateRange(range);
+                      }}
+                      disabled={(date) => date > new Date(Date.now() - 24 * 60 * 60 * 1000) || date < new Date("2020-01-01")}
+                      numberOfMonths={2}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            {/* Key Customer Metrics */}
+            <section>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <MetricCard
-                  title="Customer Satisfaction"
-                  value="86%"
-                  subtitle="Happy/Neutral mood"
+                  title="Daily Footfall"
+                  value={customerMetrics.footfall.toLocaleString()}
+                  subtitle="Average daily visitors"
                   trend="up"
-                  trendValue="Excellent rating"
-                  badge={{ text: "AI Analyzed", variant: "secondary" }}
-                />
-                <MetricCard
-                  title="Total Footfall"
-                  value="4,520"
-                  subtitle="Today's visitors"
-                  trend="up"
-                  trendValue="+12% from yesterday"
+                  trendValue="+12% from previous period"
                   badge={{ text: "Live", variant: "default" }}
                 />
                 <MetricCard
+                  title="Customer Satisfaction Index"
+                  value="72%"
+                  subtitle="During peak hours"
+                  trend="down"
+                  trendValue="Below target during rush"
+                  badge={{ text: "AI Analyzed", variant: "secondary" }}
+                />
+                  <MetricCard
                   title="Conversion Rate"
-                  value="21%"
+                  value={`${customerMetrics.conversion}%`}
                   subtitle="Entry to purchase"
                   trend="up"
                   trendValue="+2.3% improvement"
                 />
                 <MetricCard
-                  title="Average Dwell Time"
-                  value="7.2 min"
-                  subtitle="Per customer visit"
+                  title="Time to Checkout"
+                  value={`${customerMetrics.checkoutTime} min`}
+                  subtitle="Average checkout time"
                   trend="up"
                   trendValue="+0.5 min increase"
-                />
-              </div>
+                  />
+                </div>
             </section>
 
             {/* Hourly Patterns & Queue Analysis */}
@@ -974,45 +1113,95 @@ export default function Index() {
 
           {/* Employee & Operations Tab */}
           <TabsContent value="employee" className="space-y-8">
+            {/* Date Range Filter */}
+            <div className="flex items-center justify-between mb-6">
+              <SectionHeader 
+                title="Operational Excellence Metrics" 
+                description="Staff efficiency and operational metrics from video analysis"
+                className="mb-0"
+              />
+              <div className="flex items-center space-x-4">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-[280px] justify-start text-left font-normal">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {employeeDateRange?.from ? (
+                        employeeDateRange.to ? (
+                          <>
+                            {format(employeeDateRange.from, "LLL dd, y")} -{" "}
+                            {format(employeeDateRange.to, "LLL dd, y")}
+                          </>
+                        ) : (
+                          format(employeeDateRange.from, "LLL dd, y")
+                        )
+                      ) : (
+                        <span>Pick a date range</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="range"
+                      defaultMonth={employeeDateRange?.from}
+                      selected={employeeDateRange}
+                      onSelect={(range) => {
+                        if (range?.from && range?.to) {
+                          const today = new Date();
+                          const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+                          const maxDate = yesterday;
+                          
+                          if (range.to > maxDate) {
+                            range.to = maxDate;
+                          }
+                          if (range.from > maxDate) {
+                            range.from = maxDate;
+                          }
+                        }
+                        setEmployeeDateRange(range);
+                      }}
+                      disabled={(date) => date > new Date(Date.now() - 24 * 60 * 60 * 1000) || date < new Date("2020-01-01")}
+                      numberOfMonths={2}
+                    />
+                  </PopoverContent>
+                </Popover>
+                </div>
+                </div>
+
             {/* Staff Performance Overview */}
             <section>
-              <SectionHeader 
-                title="Staff Performance & Operations" 
-                description="Real-time staff efficiency and operational metrics from video analysis"
-                className="mb-6"
-              />
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <MetricCard
-                  title="Active Staff Count"
-                  value="8"
-                  subtitle="Currently on duty"
+                  title="Staff Deployed"
+                  value={employeeMetrics.staffDeployed.toString()}
+                  subtitle="Number of staff on duty (across period)"
                   trend="up"
                   trendValue="All stations manned"
                   badge={{ text: "Live", variant: "default" }}
                 />
                 <MetricCard
                   title="Staff Response Time"
-                  value="1.2 min"
+                  value={`${employeeMetrics.responseTime} min`}
                   subtitle="Avg customer assistance"
                   trend="up"
                   trendValue="Excellent performance"
                 />
-                <MetricCard
-                  title="Queue Management"
-                  value="6"
-                  subtitle="Customers in checkout"
-                  trend="down"
+                  <MetricCard
+                  title="Highest Queue Count"
+                  value={employeeMetrics.maxQueueLength.toString()}
+                  subtitle="Peak queue length"
+                    trend="down"
                   trendValue="Optimal flow"
-                />
-                <MetricCard
-                  title="Staff Efficiency"
-                  value="94%"
+                  />
+                  <MetricCard
+                  title="Staff Efficiency Score"
+                  value={`${employeeMetrics.efficiency}%`}
                   subtitle="Overall performance score"
-                  trend="up"
+                    trend="up"
                   trendValue="Above target"
                 />
               </div>
             </section>
+
 
             {/* Staff Efficiency Analysis */}
             <section>
@@ -1042,7 +1231,7 @@ export default function Index() {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="staff" />
                       <YAxis />
-                      <Tooltip />
+                      <Tooltip formatter={(value, name) => [name === 'responseTime' ? `${value} min` : `${value} min`, name]} />
                       <Bar dataKey="avgTime" fill="#ffa726" name="Avg Time (min)" />
                       <Bar dataKey="responseTime" fill="#ef5350" name="Response Time (min)" />
                     </BarChart>
@@ -1077,8 +1266,8 @@ export default function Index() {
                     <ScatterChart data={queueAnalysisData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="waitTime" name="Wait Time (min)" />
-                      <YAxis dataKey="satisfaction" name="Satisfaction Score" />
-                      <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+                      <YAxis dataKey="satisfaction" name="Satisfaction Score (0-100)" domain={[0, 100]} />
+                      <Tooltip cursor={{ strokeDasharray: '3 3' }} formatter={(value, name) => [name === 'satisfaction' ? `${value}%` : value, name]} />
                       <Scatter dataKey="queueLength" fill="#8884d8" />
                     </ScatterChart>
                   </ResponsiveContainer>
@@ -1088,14 +1277,106 @@ export default function Index() {
 
 
 
-            {/* Operational Insights & Recommendations */}
-            <section>
-              <SectionHeader 
-                title="Operational Insights & Recommendations" 
-                className="mb-6"
-              />
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="space-y-4">
+          </TabsContent>
+
+          {/* Tracking Overlay Tab */}
+          <TabsContent value="tracking" className="space-y-8">
+            <TrackingOverlay />
+          </TabsContent>
+
+          {/* Insights & Recommendations Tab */}
+          <TabsContent value="insights" className="space-y-8">
+            <SectionHeader 
+              title="Insights & Recommendations" 
+              description="AI-powered analysis and actionable recommendations for store optimization"
+              className="mb-6"
+            />
+
+            {/* What's Going Well Section */}
+            <Collapsible open={isGoingWellOpen} onOpenChange={setIsGoingWellOpen}>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="w-full justify-between p-6 h-auto">
+                  <div className="text-left">
+                    <h3 className="text-lg font-semibold text-green-700">What's Going Well</h3>
+                    <p className="text-sm text-muted-foreground">Positive performance indicators and strengths</p>
+                  </div>
+                  <svg 
+                    className={`w-5 h-5 transition-transform ${isGoingWellOpen ? 'rotate-180' : ''}`} 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-4 mt-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <MetricCard
+                    title="Staff Efficiency Score"
+                    value={`${employeeMetrics.efficiency}%`}
+                    subtitle="Current efficiency rate"
+                    trend="up"
+                    trendValue="Excellent performance"
+                    badge={{ text: "Good", variant: "default" }}
+                  />
+                  <MetricCard
+                    title="Customer Satisfaction Index"
+                    value={`${Math.round(satisfactionIndex)}%`}
+                    subtitle="Based on queue time & score"
+                    trend="up"
+                    trendValue="Excellent rating"
+                    badge={{ text: "Good", variant: "default" }}
+                  />
+                  <MetricCard
+                    title="Staff Response Time"
+                    value={`${employeeMetrics.responseTime} min`}
+                    subtitle="Avg customer assistance"
+                    trend="up"
+                    trendValue="Excellent performance"
+                    badge={{ text: "Good", variant: "default" }}
+                  />
+                  <MetricCard
+                    title="Conversion Rate"
+                    value={`${customerMetrics.conversion}%`}
+                    subtitle="Entry to purchase"
+                    trend="up"
+                    trendValue="+2.3% improvement"
+                    badge={{ text: "Good", variant: "default" }}
+                  />
+                </div>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-green-800 mb-2">Key Strengths</h4>
+                  <ul className="text-sm text-green-700 space-y-1">
+                    <li>• Staff efficiency consistently above 90%</li>
+                    <li>• Customer wait times within acceptable range</li>
+                    <li>• Good conversion rate with positive trend</li>
+                    <li>• Balanced staff distribution across zones</li>
+                  </ul>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+
+            {/* What Needs Improvement Section */}
+            <Collapsible open={isNeedsImprovementOpen} onOpenChange={setIsNeedsImprovementOpen}>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="w-full justify-between p-6 h-auto">
+                  <div className="text-left">
+                    <h3 className="text-lg font-semibold text-orange-700">What Needs Improvement</h3>
+                    <p className="text-sm text-muted-foreground">Areas requiring attention and optimization</p>
+                  </div>
+                  <svg 
+                    className={`w-5 h-5 transition-transform ${isNeedsImprovementOpen ? 'rotate-180' : ''}`} 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-4 mt-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <MetricCard
                     title="Peak Hour Optimization"
                     value="+15%"
@@ -1105,37 +1386,34 @@ export default function Index() {
                     badge={{ text: "Action Required", variant: "warning" }}
                   />
                   <MetricCard
-                    title="Customer Wait Time"
-                    value="2.1 min"
-                    subtitle="Average checkout wait"
-                    trend="down"
-                    trendValue="Within target range"
-                  />
-                </div>
-                <div className="space-y-4">
-                  <MetricCard
-                    title="Staff Utilization"
-                    value="92%"
-                    subtitle="Current efficiency rate"
+                    title="Highest Queue Count"
+                    value={employeeMetrics.maxQueueLength.toString()}
+                    subtitle="Peak queue length"
                     trend="up"
-                    trendValue="Excellent performance"
+                    trendValue="Above optimal range"
+                    badge={{ text: "Needs Attention", variant: "warning" }}
                   />
                   <MetricCard
-                    title="Zone Balance"
-                    value="Optimal"
-                    subtitle="Staff distribution status"
-                    trend="neutral"
-                    trendValue="Well balanced"
-                    badge={{ text: "Good", variant: "default" }}
+                    title="Customer Satisfaction Index"
+                    value={`${Math.round(satisfactionIndex)}%`}
+                    subtitle="During peak hours"
+                    trend="down"
+                    trendValue="Below target during rush"
+                    badge={{ text: "Needs Attention", variant: "warning" }}
                   />
                 </div>
-              </div>
-            </section>
-          </TabsContent>
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-orange-800 mb-2">Priority Actions</h4>
+                  <ul className="text-sm text-orange-700 space-y-1">
+                    <li>• Implement dynamic staff allocation during peak hours</li>
+                    <li>• Add additional checkout lanes for rush periods</li>
+                    <li>• Improve queue management system efficiency</li>
+                    <li>• Provide additional training for peak hour staff</li>
+                  </ul>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
 
-          {/* Tracking Overlay Tab */}
-          <TabsContent value="tracking" className="space-y-8">
-            <TrackingOverlay />
           </TabsContent>
         </Tabs>
       </main>

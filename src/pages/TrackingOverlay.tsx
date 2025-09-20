@@ -23,15 +23,31 @@ const TrackingOverlay: React.FC = () => {
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Load tracking data
   useEffect(() => {
+    setIsLoading(true);
+    setError(null);
     fetch('/tracked_with_metadata.json')
-      .then(response => response.json())
-      .then(data => setTrackingData(data))
-      .catch(error => console.error('Error loading tracking data:', error));
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        setTrackingData(data);
+        setIsLoading(false);
+      })
+      .catch(error => {
+        console.error('Error loading tracking data:', error);
+        setError(error.message);
+        setIsLoading(false);
+      });
   }, []);
 
   // Update canvas overlay
@@ -51,7 +67,7 @@ const TrackingOverlay: React.FC = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Draw zones
-    trackingData.zones.forEach(zone => {
+    trackingData.zones?.forEach(zone => {
       ctx.strokeStyle = zone.zone_type === 'Rack' ? '#00ff00' : '#ff0000';
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -74,7 +90,7 @@ const TrackingOverlay: React.FC = () => {
     });
 
     // Draw current tracking objects
-    const currentObjects = trackingData.tracked_objects.filter(obj => obj.frame === currentFrame);
+    const currentObjects = trackingData.tracked_objects?.filter(obj => obj.frame === currentFrame) || [];
     currentObjects.forEach(obj => {
       const [x1, y1, x2, y2] = obj.bbox;
       
@@ -99,9 +115,9 @@ const TrackingOverlay: React.FC = () => {
     setCurrentTime(currentVideoTime);
     
     // Find closest frame based on timestamp
-    const closestFrame = trackingData.tracked_objects.reduce((closest, obj) => {
+    const closestFrame = trackingData.tracked_objects?.reduce((closest, obj) => {
       return Math.abs(obj.timestamp - currentVideoTime) < Math.abs(closest.timestamp - currentVideoTime) ? obj : closest;
-    });
+    }) || { frame: 0, timestamp: 0 };
     
     setCurrentFrame(closestFrame.frame);
   };
@@ -123,6 +139,51 @@ const TrackingOverlay: React.FC = () => {
     if (!videoRef.current) return;
     videoRef.current.currentTime = time;
   };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-3xl font-bold text-foreground mb-6">
+            Video Tracking Overlay
+          </h1>
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading tracking data...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-3xl font-bold text-foreground mb-6">
+            Video Tracking Overlay
+          </h1>
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="text-red-500 text-6xl mb-4">⚠️</div>
+              <p className="text-red-500 mb-2">Error loading tracking data</p>
+              <p className="text-muted-foreground text-sm">{error}</p>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="mt-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -216,14 +277,14 @@ const TrackingOverlay: React.FC = () => {
               <h3 className="text-lg font-semibold mb-3">Current Objects</h3>
               <div className="space-y-2">
                 {trackingData?.tracked_objects
-                  .filter(obj => obj.frame === currentFrame)
-                  .map((obj, index) => (
+                  ?.filter(obj => obj.frame === currentFrame)
+                  ?.map((obj, index) => (
                     <div key={index} className="text-sm p-2 bg-muted rounded">
                       <div>Zone: {obj.zone}</div>
                       <div>Bbox: [{obj.bbox.join(', ')}]</div>
                       <div>Timestamp: {obj.timestamp.toFixed(2)}s</div>
                     </div>
-                  ))}
+                  )) || <div className="text-sm text-muted-foreground">No tracking data loaded</div>}
               </div>
             </div>
             
@@ -231,10 +292,10 @@ const TrackingOverlay: React.FC = () => {
             <div className="bg-card p-4 rounded-lg border">
               <h3 className="text-lg font-semibold mb-3">Statistics</h3>
               <div className="space-y-2 text-sm">
-                <div>Total Zones: {trackingData?.zones.length || 0}</div>
-                <div>Total Frames: {trackingData?.tracked_objects.length || 0}</div>
+                <div>Total Zones: {trackingData?.zones?.length || 0}</div>
+                <div>Total Frames: {trackingData?.tracked_objects?.length || 0}</div>
                 <div>Current Objects: {
-                  trackingData?.tracked_objects.filter(obj => obj.frame === currentFrame).length || 0
+                  trackingData?.tracked_objects?.filter(obj => obj.frame === currentFrame).length || 0
                 }</div>
               </div>
             </div>
