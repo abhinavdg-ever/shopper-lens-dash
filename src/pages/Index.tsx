@@ -10,7 +10,6 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
-import TrackingOverlay from "./TrackingOverlay";
 import { 
   BarChart, 
   Bar, 
@@ -159,6 +158,21 @@ export default function Index() {
     { id: 2, name: "Store ID #3323 (Seattle)", status: "pending", quality: "720p" },
     { id: 3, name: "Warehouse #6 (Atlanta)", status: "offline", quality: "720p" }
   ]);
+
+  // Tracking options state
+  const [trackingOptions, setTrackingOptions] = React.useState({
+    customer: true,
+    employee: true,
+    age: false,
+    gender: true,
+    attire: false,
+    viewStoreZones: true
+  });
+
+  // Tracking metadata state
+  const [trackingData, setTrackingData] = React.useState<any>(null);
+  const [isLoadingTrackingData, setIsLoadingTrackingData] = React.useState(false);
+  const [currentFrame, setCurrentFrame] = React.useState(0);
   
   // Live metrics state for auto-refresh
   const [liveMetrics, setLiveMetrics] = React.useState({
@@ -324,6 +338,310 @@ export default function Index() {
     return () => clearTimeout(timer);
   }, [showOriginalVideo, isProcessedVideoMain]);
 
+  // Load tracking data on component mount
+  useEffect(() => {
+    const loadTrackingData = async () => {
+      setIsLoadingTrackingData(true);
+      try {
+        const response = await fetch('/tracked_with_metadata_full.json');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setTrackingData(data);
+      } catch (error) {
+        console.error('Error loading tracking data:', error);
+      } finally {
+        setIsLoadingTrackingData(false);
+      }
+    };
+
+    loadTrackingData();
+  }, []);
+
+  // Calculate live metrics from tracking data
+  useEffect(() => {
+    if (!trackingData || !trackingData.person_data) return;
+
+    const calculateLiveMetrics = () => {
+      // Get current frame data (simulate current time)
+      const currentTime = Date.now() / 1000;
+      const currentFrame = Math.floor(currentTime * 30) % 1000; // Assuming 30 FPS, cycle through 1000 frames
+      
+      // Find people currently in the frame
+      const currentPeople = trackingData.person_data.filter((person: any) => {
+        return person.log.some((logEntry: any) => logEntry.frame === currentFrame);
+      });
+      
+      // Count unique people in current frame
+      const uniquePeople = new Set();
+      const genderCount = { male: 0, female: 0, unknown: 0 };
+      
+      currentPeople.forEach((person: any) => {
+        if (person.custom_id) {
+          uniquePeople.add(person.custom_id);
+          
+          if (person.gender) {
+            if (person.gender === 'male') genderCount.male++;
+            else if (person.gender === 'female') genderCount.female++;
+            else genderCount.unknown++;
+          }
+        }
+      });
+
+      const totalPeople = uniquePeople.size;
+      const totalGender = genderCount.male + genderCount.female + genderCount.unknown;
+      
+      // Calculate gender percentages
+      const femalePercent = totalGender > 0 ? Math.round((genderCount.female / totalGender) * 100) : 0;
+      const malePercent = totalGender > 0 ? Math.round((genderCount.male / totalGender) * 100) : 0;
+      const unknownPercent = totalGender > 0 ? Math.round((genderCount.unknown / totalGender) * 100) : 0;
+
+      setLiveMetrics(prev => ({
+        ...prev,
+        customerCount: totalPeople,
+        genderSplit: `${femalePercent}% F / ${malePercent}% M / ${unknownPercent}% U`
+      }));
+    };
+
+    calculateLiveMetrics();
+    
+    // Update every 2 seconds
+    const interval = setInterval(calculateLiveMetrics, 2000);
+    
+    return () => clearInterval(interval);
+  }, [trackingData]);
+
+  // Draw tracking overlays on canvas
+  useEffect(() => {
+    if (!trackingData || !trackingData.person_data) return;
+
+    const drawTrackingOverlay = (canvasId: string, videoId: string) => {
+      const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
+      const video = document.getElementById(videoId) as HTMLVideoElement;
+      
+      if (!canvas || !video) return;
+
+      // Set canvas size to match video
+      canvas.width = video.offsetWidth;
+      canvas.height = video.offsetHeight;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Only show overlays if Customer is ticked AND we're in Processed Video mode
+      if (!trackingOptions.customer || !isProcessedVideoMain) return;
+
+      // Get current frame data based on video time
+      const videoTime = video.currentTime;
+      const fps = 30; // Assuming 30 FPS
+      const currentFrame = Math.floor(videoTime * fps);
+
+      // Find people currently in the frame
+      const currentPeople = trackingData.person_data.filter((person: any) => {
+        return person.log.some((logEntry: any) => logEntry.frame === currentFrame);
+      });
+
+      // Draw zone polygons first (static, not moving with customers)
+      if (trackingOptions.viewStoreZones && trackingData.zones) {
+        trackingData.zones.forEach((zone: any) => {
+          if (zone.polygon && zone.polygon.length > 0) {
+            // Draw zone fill with darker color
+            ctx.fillStyle = 'rgba(255, 107, 107, 0.3)';
+            ctx.beginPath();
+            zone.polygon.forEach((point: any, index: number) => {
+              const x = point[0] * (canvas.width / (video.videoWidth || 1920));
+              const y = point[1] * (canvas.height / (video.videoHeight || 1080));
+              
+              if (index === 0) {
+                ctx.moveTo(x, y);
+              } else {
+                ctx.lineTo(x, y);
+              }
+            });
+            ctx.closePath();
+            ctx.fill();
+            
+            // Draw zone border with darker color
+            ctx.strokeStyle = 'rgba(255, 107, 107, 0.8)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([8, 4]);
+            
+            ctx.beginPath();
+            zone.polygon.forEach((point: any, index: number) => {
+              const x = point[0] * (canvas.width / (video.videoWidth || 1920));
+              const y = point[1] * (canvas.height / (video.videoHeight || 1080));
+              
+              if (index === 0) {
+                ctx.moveTo(x, y);
+              } else {
+                ctx.lineTo(x, y);
+              }
+            });
+            ctx.closePath();
+            ctx.stroke();
+            
+            // Draw zone name with darker background
+            if (zone.polygon.length > 0) {
+              const centerX = zone.polygon.reduce((sum: number, point: any) => sum + point[0], 0) / zone.polygon.length;
+              const centerY = zone.polygon.reduce((sum: number, point: any) => sum + point[1], 0) / zone.polygon.length;
+              const scaledCenterX = centerX * (canvas.width / (video.videoWidth || 1920));
+              const scaledCenterY = centerY * (canvas.height / (video.videoHeight || 1080));
+              
+              // Draw darker background for zone name
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+              ctx.fillRect(scaledCenterX - 40, scaledCenterY - 15, 80, 20);
+              
+              ctx.fillStyle = '#ffffff';
+              ctx.font = '12px Arial';
+              ctx.textAlign = 'center';
+              ctx.fillText(zone.zone_name, scaledCenterX, scaledCenterY);
+            }
+          }
+        });
+        ctx.setLineDash([]); // Reset line dash
+      }
+
+      // Draw tracking boxes and labels for each detected person
+      currentPeople.forEach((person: any) => {
+        // Find the log entry for current frame
+        const currentLogEntry = person.log.find((logEntry: any) => logEntry.frame === currentFrame);
+        if (!currentLogEntry || !currentLogEntry.bbox || !Array.isArray(currentLogEntry.bbox) || currentLogEntry.bbox.length < 4) return;
+
+        const [x1, y1, x2, y2] = currentLogEntry.bbox;
+        const width = x2 - x1;
+        const height = y2 - y1;
+
+        // Scale coordinates to canvas size
+        const scaleX = canvas.width / (video.videoWidth || 1920);
+        const scaleY = canvas.height / (video.videoHeight || 1080);
+
+        const scaledX1 = x1 * scaleX;
+        const scaledY1 = y1 * scaleY;
+        const scaledWidth = width * scaleX;
+        const scaledHeight = height * scaleY;
+
+        // Draw bounding box (thinner)
+        ctx.strokeStyle = '#00ff00';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(scaledX1, scaledY1, scaledWidth, scaledHeight);
+
+        // Draw label background - different info based on video mode
+        const labelText = [];
+        
+        if (isProcessedVideoMain) {
+          // Processed Video mode - show selected tracking info with cycling
+          const selectedOptions = [];
+          if (trackingOptions.gender && person.gender) {
+            selectedOptions.push({ type: 'gender', value: person.gender });
+          }
+          if (trackingOptions.age && person.age) {
+            selectedOptions.push({ type: 'age', value: person.age });
+          }
+          if (trackingOptions.attire && person.upper_wear && person.lower_wear) {
+            selectedOptions.push({ type: 'attire', value: `${person.upper_wear}/${person.lower_wear}` });
+          }
+          
+          // Cycle through selected options every 2 seconds
+          if (selectedOptions.length > 0) {
+            const cycleIndex = Math.floor(Date.now() / 2000) % selectedOptions.length;
+            const currentOption = selectedOptions[cycleIndex];
+            labelText.push(`${currentOption.type}: ${currentOption.value}`);
+          }
+        } else {
+          // Original Video mode - show minimal info
+          if (person.custom_id) {
+            labelText.push(`ID: ${person.custom_id}`);
+          }
+        }
+
+        if (labelText.length > 0) {
+          const text = labelText.join(' | ');
+          const textMetrics = ctx.measureText(text);
+          const labelHeight = 20;
+          const labelWidth = textMetrics.width + 10;
+
+          // Draw label background
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+          ctx.fillRect(scaledX1, scaledY1 - labelHeight, labelWidth, labelHeight);
+
+          // Draw label text
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '12px Arial';
+          ctx.textAlign = 'left';
+          ctx.fillText(text, scaledX1 + 5, scaledY1 - 5);
+        }
+      });
+    };
+
+    // Draw overlay every frame
+    const drawInterval = setInterval(() => {
+      drawTrackingOverlay('tracking-canvas', 'main-video');
+    }, 1000 / 30); // 30 FPS
+
+    // Also start drawing immediately when video loads
+    const mainVideo = document.getElementById('main-video') as HTMLVideoElement;
+    
+    const startDrawing = () => {
+      drawTrackingOverlay('tracking-canvas', 'main-video');
+    };
+    
+    if (mainVideo) {
+      mainVideo.addEventListener('loadeddata', startDrawing);
+      mainVideo.addEventListener('play', startDrawing);
+    }
+    
+    return () => {
+      clearInterval(drawInterval);
+      if (mainVideo) {
+        mainVideo.removeEventListener('loadeddata', startDrawing);
+        mainVideo.removeEventListener('play', startDrawing);
+      }
+    };
+  }, [trackingData, trackingOptions, isProcessedVideoMain]);
+
+  // Force tracking to start immediately when video loads
+  useEffect(() => {
+    const video = document.getElementById('main-video') as HTMLVideoElement;
+    if (video && trackingData) {
+      const startTracking = () => {
+        // Force a redraw of the tracking overlay
+        const canvas = document.getElementById('tracking-canvas') as HTMLCanvasElement;
+        if (canvas) {
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+          }
+        }
+      };
+      
+      video.addEventListener('loadeddata', startTracking);
+      video.addEventListener('canplay', startTracking);
+      
+      return () => {
+        if (video) {
+          video.removeEventListener('loadeddata', startTracking);
+          video.removeEventListener('canplay', startTracking);
+        }
+      };
+    }
+  }, [trackingData]);
+
+  // Force overlay redraw when video mode changes
+  useEffect(() => {
+    const mainCanvas = document.getElementById('tracking-canvas') as HTMLCanvasElement;
+    
+    if (mainCanvas) {
+      const ctx = mainCanvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+      }
+    }
+  }, [isProcessedVideoMain]);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -371,9 +689,8 @@ export default function Index() {
         )}
 
         <Tabs defaultValue="video" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="video">Video Feed</TabsTrigger>
-            <TabsTrigger value="tracking">Tracking Overlay (Test)</TabsTrigger>
             <TabsTrigger value="customer">Customer Analytics</TabsTrigger>
             <TabsTrigger value="employee">Employee & Operations Excellence</TabsTrigger>
             <TabsTrigger value="insights">Insights & Recommendations</TabsTrigger>
@@ -546,17 +863,42 @@ export default function Index() {
 
                 {/* Multi-Select Tracking Controls */}
                 <div className="bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-xl p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold mb-4 text-foreground">Tracking Options</h3>
+                  <h3 className="text-lg font-semibold mb-4 text-foreground">Tracking Menu</h3>
                   <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-2 block">View Options</label>
+                      <div className="space-y-2">
+                        <label className="flex items-center space-x-3 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 text-primary" 
+                            checked={trackingOptions.viewStoreZones}
+                            onChange={(e) => setTrackingOptions(prev => ({ ...prev, viewStoreZones: e.target.checked }))}
+                          />
+                          <span className="text-sm font-medium">View Store Zones</span>
+                        </label>
+                      </div>
+                    </div>
+
                     <div>
                       <label className="text-sm font-medium text-foreground mb-2 block">Person Type</label>
                       <div className="space-y-2">
                         <label className="flex items-center space-x-3 cursor-pointer">
-                          <input type="checkbox" className="w-4 h-4 text-primary" defaultChecked />
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 text-primary" 
+                            checked={trackingOptions.customer}
+                            onChange={(e) => setTrackingOptions(prev => ({ ...prev, customer: e.target.checked }))}
+                          />
                           <span className="text-sm font-medium">Customer</span>
                         </label>
                         <label className="flex items-center space-x-3 cursor-pointer">
-                          <input type="checkbox" className="w-4 h-4 text-primary" />
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 text-primary" 
+                            checked={trackingOptions.employee}
+                            onChange={(e) => setTrackingOptions(prev => ({ ...prev, employee: e.target.checked }))}
+                          />
                           <span className="text-sm font-medium">Employee</span>
                         </label>
                       </div>
@@ -566,29 +908,44 @@ export default function Index() {
               <label className="text-sm font-medium text-foreground mb-2 block">Customer Properties</label>
               <div className="space-y-2">
                 <label className="flex items-center space-x-3 cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4 text-primary" />
+                  <input 
+                    type="checkbox" 
+                    className="w-4 h-4 text-primary" 
+                    checked={trackingOptions.age}
+                    onChange={(e) => setTrackingOptions(prev => ({ ...prev, age: e.target.checked }))}
+                  />
                   <span className="text-sm font-medium">Age</span>
                 </label>
                 <label className="flex items-center space-x-3 cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4 text-primary" defaultChecked />
+                  <input 
+                    type="checkbox" 
+                    className="w-4 h-4 text-primary" 
+                    checked={trackingOptions.gender}
+                    onChange={(e) => setTrackingOptions(prev => ({ ...prev, gender: e.target.checked }))}
+                  />
                   <span className="text-sm font-medium">Gender</span>
                 </label>
                 <label className="flex items-center space-x-3 cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4 text-primary" />
+                  <input 
+                    type="checkbox" 
+                    className="w-4 h-4 text-primary" 
+                    checked={trackingOptions.attire}
+                    onChange={(e) => setTrackingOptions(prev => ({ ...prev, attire: e.target.checked }))}
+                  />
                   <span className="text-sm font-medium">Attire</span>
                 </label>
               </div>
             </div>
                     
                     <div>
-                      <label className="text-sm font-medium text-foreground mb-2 block">Proximity Detector</label>
-                      <div className="space-y-2">
-                        <label className="flex items-center space-x-3 cursor-pointer">
-                          <input type="checkbox" className="w-4 h-4 text-primary" />
+                      <label className="text-sm font-medium text-foreground mb-2 block">Proximity Detector <span className="text-xs text-muted-foreground">(Coming Soon)</span></label>
+                      <div className="space-y-2 opacity-50">
+                        <label className="flex items-center space-x-3 cursor-not-allowed">
+                          <input type="checkbox" className="w-4 h-4 text-primary" disabled />
                           <span className="text-sm font-medium">Cash Counter</span>
                         </label>
-                        <label className="flex items-center space-x-3 cursor-pointer">
-                          <input type="checkbox" className="w-4 h-4 text-primary" defaultChecked />
+                        <label className="flex items-center space-x-3 cursor-not-allowed">
+                          <input type="checkbox" className="w-4 h-4 text-primary" disabled />
                           <span className="text-sm font-medium">Entry/Exit</span>
                         </label>
                       </div>
@@ -638,7 +995,7 @@ export default function Index() {
                   
                   {/* Main Video Display with Switch Functionality */}
                   <div className="relative aspect-video bg-gradient-to-br from-slate-900 to-slate-800 rounded-lg overflow-hidden border border-border/30">
-                    {/* Main Video - Switches between Processed and Original */}
+                    {/* Main Video - Always shows Original Video */}
                     <video
                       id="main-video"
                       className="w-full h-full object-cover"
@@ -646,20 +1003,33 @@ export default function Index() {
                       loop
                       muted
                       playsInline
-                      key={isProcessedVideoMain ? "processed" : "original"}
+                      onEnded={() => {
+                        const video = document.getElementById('main-video') as HTMLVideoElement;
+                        if (video) {
+                          video.currentTime = 0;
+                          video.play();
+                        }
+                      }}
                     >
-                      <source src={isProcessedVideoMain ? "/Processed Video.mp4" : "/Original Video.mp4"} type="video/mp4" />
+                      <source src="/Original Video.mp4" type="video/mp4" />
                       Your browser does not support the video tag.
                     </video>
+                    
+                    {/* Tracking Overlay Canvas - Always show overlays */}
+                    <canvas
+                      id="tracking-canvas"
+                      className="absolute top-0 left-0 w-full h-full pointer-events-none"
+                      style={{ zIndex: 10 }}
+                    ></canvas>
                     
                     {/* Video Type Indicator */}
                     <div className="absolute top-4 left-4 bg-black/70 text-white text-sm px-3 py-1 rounded-lg font-semibold">
                       {isProcessedVideoMain ? "Processed Video" : "Original Video"}
-              </div>
+                    </div>
 
                     {/* Switch Video Button */}
                     <button 
-                      className="absolute top-4 right-4 bg-blue-500 hover:bg-blue-600 text-white text-lg px-3 py-2 rounded-lg flex items-center shadow-lg transition-colors"
+                      className="absolute top-4 right-4 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded-lg flex items-center shadow-lg transition-colors"
                       onClick={() => {
                         const mainVideo = document.getElementById('main-video') as HTMLVideoElement;
                         const currentTime = mainVideo ? mainVideo.currentTime : 0;
@@ -669,61 +1039,16 @@ export default function Index() {
                         // Sync the new main video to the current time after switching
                         setTimeout(() => {
                           const newMainVideo = document.getElementById('main-video') as HTMLVideoElement;
-                          const secondaryVideo = document.getElementById('secondary-video') as HTMLVideoElement;
                           if (newMainVideo) {
                             newMainVideo.currentTime = currentTime;
-                          }
-                          if (secondaryVideo) {
-                            secondaryVideo.currentTime = currentTime;
                           }
                         }, 200);
                       }}
                       title={`Switch to ${isProcessedVideoMain ? 'Original' : 'Processed'} Video`}
                     >
-                      ↔
+                      {isProcessedVideoMain ? 'Switch to Original' : 'Switch to Processed'}
                     </button>
 
-                    {/* Embedded Secondary Video - Top Right Corner (when not minimized) */}
-                    {showOriginalVideo && (
-                      <div className="absolute top-16 right-4 w-48 h-32 rounded-lg border-2 border-blue-400 shadow-xl overflow-hidden bg-black">
-                        <div className="absolute top-0 left-0 right-0 bg-blue-500 text-white text-xs px-2 py-1 font-semibold">
-                          {isProcessedVideoMain ? "Original Video" : "Processed Video"}
-                        </div>
-                        <video
-                          id="secondary-video"
-                          className="w-full h-full object-cover mt-4"
-                          autoPlay
-                          loop
-                          muted
-                          playsInline
-                          key={isProcessedVideoMain ? "original-secondary" : "processed-secondary"}
-                        >
-                          <source src={isProcessedVideoMain ? "/Original Video.mp4" : "/Processed Video.mp4"} type="video/mp4" />
-                          Your browser does not support the video tag.
-                        </video>
-                        {/* Minimize button */}
-                        <button 
-                          className="absolute top-1 right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white text-xs rounded-full flex items-center justify-center shadow-lg"
-                          onClick={() => setShowOriginalVideo(false)}
-                          title="Minimize"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Show Secondary Video Button - Only when minimized */}
-                    {!showOriginalVideo && (
-                      <button 
-                        className="absolute top-16 right-4 bg-gray-600 hover:bg-gray-700 text-white text-xs px-3 py-2 rounded-lg flex items-center space-x-1"
-                        onClick={() => setShowOriginalVideo(true)}
-                      >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                        <span>Show {isProcessedVideoMain ? 'Original' : 'Processed'}</span>
-                      </button>
-                    )}
                   </div>
                 </div>
                 
@@ -733,7 +1058,7 @@ export default function Index() {
                     className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
                     onClick={() => {
                       const mainVideo = document.getElementById('main-video') as HTMLVideoElement;
-                      const secondaryVideo = document.getElementById('secondary-video') as HTMLVideoElement;
+                      const trackingCanvas = document.getElementById('tracking-canvas') as HTMLCanvasElement;
                       
                       if (mainVideo) {
                         // Create canvas with video dimensions
@@ -746,11 +1071,150 @@ export default function Index() {
                           // Draw the main video frame to canvas
                           ctx.drawImage(mainVideo, 0, 0, canvas.width, canvas.height);
                           
+                          // Draw tracking overlays if they exist
+                          if (trackingCanvas && trackingData && trackingData.person_data) {
+                            const videoTime = mainVideo.currentTime;
+                            const fps = 30;
+                            const currentFrame = Math.floor(videoTime * fps);
+                            
+                            // Only show overlays if Customer is ticked AND we're in Processed Video mode
+                            if (trackingOptions.customer && isProcessedVideoMain) {
+                              // Draw zone polygons first
+                              if (trackingOptions.viewStoreZones && trackingData.zones) {
+                                trackingData.zones.forEach((zone: any) => {
+                                  if (zone.polygon && zone.polygon.length > 0) {
+                                    // Draw zone fill with darker color
+                                    ctx.fillStyle = 'rgba(255, 107, 107, 0.3)';
+                                    ctx.beginPath();
+                                    zone.polygon.forEach((point: any, index: number) => {
+                                      const x = point[0] * (canvas.width / (mainVideo.videoWidth || 1920));
+                                      const y = point[1] * (canvas.height / (mainVideo.videoHeight || 1080));
+                                      
+                                      if (index === 0) {
+                                        ctx.moveTo(x, y);
+                                      } else {
+                                        ctx.lineTo(x, y);
+                                      }
+                                    });
+                                    ctx.closePath();
+                                    ctx.fill();
+                                    
+                                    // Draw zone border with darker color
+                                    ctx.strokeStyle = 'rgba(255, 107, 107, 0.8)';
+                                    ctx.lineWidth = 3;
+                                    ctx.setLineDash([8, 4]);
+                                    
+                                    ctx.beginPath();
+                                    zone.polygon.forEach((point: any, index: number) => {
+                                      const x = point[0] * (canvas.width / (mainVideo.videoWidth || 1920));
+                                      const y = point[1] * (canvas.height / (mainVideo.videoHeight || 1080));
+                                      
+                                      if (index === 0) {
+                                        ctx.moveTo(x, y);
+                                      } else {
+                                        ctx.lineTo(x, y);
+                                      }
+                                    });
+                                    ctx.closePath();
+                                    ctx.stroke();
+                                    
+                                    // Draw zone name with darker background
+                                    if (zone.polygon.length > 0) {
+                                      const centerX = zone.polygon.reduce((sum: number, point: any) => sum + point[0], 0) / zone.polygon.length;
+                                      const centerY = zone.polygon.reduce((sum: number, point: any) => sum + point[1], 0) / zone.polygon.length;
+                                      const scaledCenterX = centerX * (canvas.width / (mainVideo.videoWidth || 1920));
+                                      const scaledCenterY = centerY * (canvas.height / (mainVideo.videoHeight || 1080));
+                                      
+                                      // Draw darker background for zone name
+                                      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                                      ctx.fillRect(scaledCenterX - 40, scaledCenterY - 15, 80, 20);
+                                      
+                                      ctx.fillStyle = '#ffffff';
+                                      ctx.font = '12px Arial';
+                                      ctx.textAlign = 'center';
+                                      ctx.fillText(zone.zone_name, scaledCenterX, scaledCenterY);
+                                    }
+                                  }
+                                });
+                                ctx.setLineDash([]);
+                              }
+                              
+                              // Find people currently in the frame
+                              const currentPeople = trackingData.person_data.filter((person: any) => {
+                                return person.log.some((logEntry: any) => logEntry.frame === currentFrame);
+                              });
+                              
+                              // Draw tracking boxes and labels
+                              currentPeople.forEach((person: any) => {
+                                const currentLogEntry = person.log.find((logEntry: any) => logEntry.frame === currentFrame);
+                                if (!currentLogEntry || !currentLogEntry.bbox || !Array.isArray(currentLogEntry.bbox) || currentLogEntry.bbox.length < 4) return;
+
+                                const [x1, y1, x2, y2] = currentLogEntry.bbox;
+                                const scaleX = canvas.width / (mainVideo.videoWidth || 1920);
+                                const scaleY = canvas.height / (mainVideo.videoHeight || 1080);
+
+                                const scaledX1 = x1 * scaleX;
+                                const scaledY1 = y1 * scaleY;
+                                const scaledWidth = (x2 - x1) * scaleX;
+                                const scaledHeight = (y2 - y1) * scaleY;
+
+                                // Draw bounding box (thinner)
+                                ctx.strokeStyle = '#00ff00';
+                                ctx.lineWidth = 1;
+                                ctx.strokeRect(scaledX1, scaledY1, scaledWidth, scaledHeight);
+
+                                // Draw label
+                                const labelText = [];
+                                
+                                if (isProcessedVideoMain) {
+                                  const selectedOptions = [];
+                                  if (trackingOptions.gender && person.gender) {
+                                    selectedOptions.push({ type: 'gender', value: person.gender });
+                                  }
+                                  if (trackingOptions.age && person.age) {
+                                    selectedOptions.push({ type: 'age', value: person.age });
+                                  }
+                                  if (trackingOptions.attire && person.upper_wear && person.lower_wear) {
+                                    selectedOptions.push({ type: 'attire', value: `${person.upper_wear}/${person.lower_wear}` });
+                                  }
+                                  
+                                  if (selectedOptions.length > 0) {
+                                    const cycleIndex = Math.floor(Date.now() / 2000) % selectedOptions.length;
+                                    const currentOption = selectedOptions[cycleIndex];
+                                    labelText.push(`${currentOption.type}: ${currentOption.value}`);
+                                  }
+                                } else {
+                                  if (person.custom_id) {
+                                    labelText.push(`ID: ${person.custom_id}`);
+                                  }
+                                }
+
+                                if (labelText.length > 0) {
+                                  const text = labelText.join(' | ');
+                                  const textMetrics = ctx.measureText(text);
+                                  const labelHeight = 20;
+                                  const labelWidth = textMetrics.width + 10;
+
+                                  // Draw label background
+                                  ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                                  ctx.fillRect(scaledX1, scaledY1 - labelHeight, labelWidth, labelHeight);
+
+                                  // Draw label text
+                                  ctx.fillStyle = '#ffffff';
+                                  ctx.font = '12px Arial';
+                                  ctx.textAlign = 'left';
+                                  ctx.fillText(text, scaledX1 + 5, scaledY1 - 5);
+                                }
+                              });
+                            }
+                          }
+                          
                           // Add timestamp overlay
                           ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
                           ctx.fillRect(10, canvas.height - 40, 200, 30);
                           ctx.fillStyle = '#ffffff';
                           ctx.font = '14px Arial';
+                          ctx.textAlign = 'left';
                           ctx.fillText(new Date().toLocaleString(), 15, canvas.height - 20);
                           
                           // Add video type indicator
@@ -859,7 +1323,7 @@ export default function Index() {
                 className="mb-6"
               />
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <MetricCard
+                  <MetricCard
                   title="Live Customer Count"
                   value={liveMetrics.customerCount.toString()}
                   subtitle="Currently in store"
@@ -874,16 +1338,16 @@ export default function Index() {
                   trend="neutral"
                   trendValue="Female majority"
                   badge={{ text: "Live", variant: "default" }}
-                />
-                <MetricCard
+                  />
+                  <MetricCard
                   title="Conversion Rate"
                   value={`${liveMetrics.conversionRate}%`}
                   subtitle="Video tracked purchases"
                   trend="up"
                   trendValue="+2.3% from avg"
                   badge={{ text: "Live", variant: "default" }}
-                />
-                <MetricCard
+                  />
+                  <MetricCard
                   title="Staff Response Time"
                   value={`${employeeMetrics.responseTime} min`}
                   subtitle="Avg customer assistance"
@@ -950,32 +1414,32 @@ export default function Index() {
                   </PopoverContent>
                 </Popover>
               </div>
-            </div>
+                </div>
 
             {/* Key Customer Metrics */}
             <section>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <MetricCard
+                  <MetricCard
                   title="Daily Footfall"
                   value={customerMetrics.footfall.toLocaleString()}
                   subtitle="Average daily visitors"
                   trend="up"
                   trendValue="+12% from previous period"
                   badge={{ text: "Live", variant: "default" }}
-                />
-                <MetricCard
+                  />
+                  <MetricCard
                   title="Customer Satisfaction Index"
                   value="72%"
                   subtitle="During peak hours"
-                  trend="down"
+                    trend="down"
                   trendValue="Below target during rush"
                   badge={{ text: "AI Analyzed", variant: "secondary" }}
-                />
+                  />
                   <MetricCard
                   title="Conversion Rate"
                   value={`${customerMetrics.conversion}%`}
                   subtitle="Entry to purchase"
-                  trend="up"
+                    trend="up"
                   trendValue="+2.3% improvement"
                 />
                 <MetricCard
@@ -985,7 +1449,7 @@ export default function Index() {
                   trend="up"
                   trendValue="+0.5 min increase"
                   />
-                </div>
+              </div>
             </section>
 
             {/* Hourly Patterns & Queue Analysis */}
@@ -1022,7 +1486,7 @@ export default function Index() {
                     </ComposedChart>
                   </ResponsiveContainer>
                 </ChartCard>
-                </div>
+              </div>
             </section>
 
 
@@ -1196,7 +1660,7 @@ export default function Index() {
                   trend="up"
                   trendValue="Excellent performance"
                 />
-                  <MetricCard
+                <MetricCard
                   title="Highest Queue Count"
                   value={employeeMetrics.maxQueueLength.toString()}
                   subtitle="Peak queue length"
@@ -1207,7 +1671,7 @@ export default function Index() {
                   title="Staff Efficiency Score"
                   value={`${employeeMetrics.efficiency}%`}
                   subtitle="Overall performance score"
-                    trend="up"
+                  trend="up"
                   trendValue="Above target"
                 />
               </div>
@@ -1290,18 +1754,13 @@ export default function Index() {
 
           </TabsContent>
 
-          {/* Tracking Overlay Tab */}
-          <TabsContent value="tracking" className="space-y-8">
-            <TrackingOverlay />
-          </TabsContent>
-
           {/* Insights & Recommendations Tab */}
           <TabsContent value="insights" className="space-y-8">
-            <SectionHeader 
+              <SectionHeader 
               title="Insights & Recommendations" 
               description="AI-powered analysis and actionable recommendations for store optimization"
-              className="mb-6"
-            />
+                className="mb-6"
+              />
 
             {/* What's Going Well Section */}
             <Collapsible open={isGoingWellOpen} onOpenChange={setIsGoingWellOpen}>
@@ -1323,39 +1782,39 @@ export default function Index() {
               </CollapsibleTrigger>
               <CollapsibleContent className="space-y-4 mt-4">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <MetricCard
+                <MetricCard
                     title="Staff Efficiency Score"
                     value={`${employeeMetrics.efficiency}%`}
                     subtitle="Current efficiency rate"
                     trend="up"
                     trendValue="Excellent performance"
                     badge={{ text: "Good", variant: "default" }}
-                  />
-                  <MetricCard
+                />
+                <MetricCard
                     title="Customer Satisfaction Index"
                     value={`${Math.round(satisfactionIndex)}%`}
                     subtitle="Based on queue time & score"
                     trend="up"
                     trendValue="Excellent rating"
                     badge={{ text: "Good", variant: "default" }}
-                  />
-                  <MetricCard
+                />
+                <MetricCard
                     title="Staff Response Time"
                     value={`${employeeMetrics.responseTime} min`}
                     subtitle="Avg customer assistance"
-                    trend="up"
+                  trend="up"
                     trendValue="Excellent performance"
                     badge={{ text: "Good", variant: "default" }}
-                  />
-                  <MetricCard
+                />
+                <MetricCard
                     title="Conversion Rate"
                     value={`${customerMetrics.conversion}%`}
                     subtitle="Entry to purchase"
-                    trend="up"
+                  trend="up"
                     trendValue="+2.3% improvement"
                     badge={{ text: "Good", variant: "default" }}
-                  />
-                </div>
+                />
+              </div>
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <h4 className="font-semibold text-green-800 mb-2">Key Strengths</h4>
                   <ul className="text-sm text-green-700 space-y-1">
@@ -1387,7 +1846,7 @@ export default function Index() {
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent className="space-y-4 mt-4">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <MetricCard
                     title="Peak Hour Optimization"
                     value="+15%"
@@ -1421,7 +1880,7 @@ export default function Index() {
                     <li>• Improve queue management system efficiency</li>
                     <li>• Provide additional training for peak hour staff</li>
                   </ul>
-                </div>
+              </div>
               </CollapsibleContent>
             </Collapsible>
 
