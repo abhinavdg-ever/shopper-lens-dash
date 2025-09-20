@@ -1678,7 +1678,7 @@ export default function Index() {
                         Live
                       </span>
                     </div>
-                    <div className="text-2xl font-bold text-foreground mb-1">
+                    <div className="text-3xl font-bold text-foreground mb-1">
                       {liveMetrics.customerCount.toString()}
                     </div>
                     <div className="text-sm text-muted-foreground mb-2">
