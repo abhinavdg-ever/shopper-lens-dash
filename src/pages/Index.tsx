@@ -364,9 +364,19 @@ export default function Index() {
     if (!trackingData || !trackingData.person_data) return;
 
     const calculateLiveMetrics = () => {
-      // Get current frame data (simulate current time)
-      const currentTime = Date.now() / 1000;
-      const currentFrame = Math.floor(currentTime * 30) % 1000; // Assuming 30 FPS, cycle through 1000 frames
+      // Get current frame data based on video time if available, otherwise use simulated time
+      const mainVideo = document.getElementById('main-video') as HTMLVideoElement;
+      let currentFrame;
+      
+      if (mainVideo && !mainVideo.paused) {
+        // Use actual video time for more accurate tracking
+        const videoTime = mainVideo.currentTime;
+        currentFrame = Math.floor(videoTime * 30); // 30 FPS
+      } else {
+        // Fallback to simulated time
+        const currentTime = Date.now() / 1000;
+        currentFrame = Math.floor(currentTime * 30) % 1000;
+      }
       
       // Find people currently in the frame
       const currentPeople = trackingData.person_data.filter((person: any) => {
@@ -545,9 +555,9 @@ export default function Index() {
             selectedOptions.push({ type: 'attire', value: `${person.upper_wear}/${person.lower_wear}` });
           }
           
-          // Cycle through selected options every 2 seconds
+          // Cycle through selected options every 1 second for smoother display
           if (selectedOptions.length > 0) {
-            const cycleIndex = Math.floor(Date.now() / 2000) % selectedOptions.length;
+            const cycleIndex = Math.floor(Date.now() / 1000) % selectedOptions.length;
             const currentOption = selectedOptions[cycleIndex];
             labelText.push(`${currentOption.type}: ${currentOption.value}`);
           }
@@ -633,6 +643,7 @@ export default function Index() {
   // Force overlay redraw when video mode changes
   useEffect(() => {
     const mainCanvas = document.getElementById('tracking-canvas') as HTMLCanvasElement;
+    const mainVideo = document.getElementById('main-video') as HTMLVideoElement;
     
     if (mainCanvas) {
       const ctx = mainCanvas.getContext('2d');
@@ -640,7 +651,175 @@ export default function Index() {
         ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
       }
     }
-  }, [isProcessedVideoMain]);
+    
+    // Force immediate redraw when switching to processed mode
+    if (isProcessedVideoMain && mainVideo && trackingData) {
+      setTimeout(() => {
+        const drawTrackingOverlay = (canvasId: string, videoId: string) => {
+          const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
+          const video = document.getElementById(videoId) as HTMLVideoElement;
+          
+          if (!canvas || !video) return;
+
+          // Set canvas size to match video
+          canvas.width = video.offsetWidth;
+          canvas.height = video.offsetHeight;
+
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+
+          // Clear canvas
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          // Only show overlays if Customer is ticked AND we're in Processed Video mode
+          if (!trackingOptions.customer || !isProcessedVideoMain) return;
+
+          // Get current frame data based on video time
+          const videoTime = video.currentTime;
+          const fps = 30; // Assuming 30 FPS
+          const currentFrame = Math.floor(videoTime * fps);
+
+          // Find people currently in the frame
+          const currentPeople = trackingData.person_data.filter((person: any) => {
+            return person.log.some((logEntry: any) => logEntry.frame === currentFrame);
+          });
+
+          // Draw zone polygons first (static, not moving with customers)
+          if (trackingOptions.viewStoreZones && trackingData.zones) {
+            trackingData.zones.forEach((zone: any) => {
+              if (zone.polygon && zone.polygon.length > 0) {
+                // Draw zone fill with darker color
+                ctx.fillStyle = 'rgba(255, 107, 107, 0.3)';
+                ctx.beginPath();
+                zone.polygon.forEach((point: any, index: number) => {
+                  const x = point[0] * (canvas.width / (video.videoWidth || 1920));
+                  const y = point[1] * (canvas.height / (video.videoHeight || 1080));
+                  
+                  if (index === 0) {
+                    ctx.moveTo(x, y);
+                  } else {
+                    ctx.lineTo(x, y);
+                  }
+                });
+                ctx.closePath();
+                ctx.fill();
+                
+                // Draw zone border with darker color
+                ctx.strokeStyle = 'rgba(255, 107, 107, 0.8)';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([8, 4]);
+                
+                ctx.beginPath();
+                zone.polygon.forEach((point: any, index: number) => {
+                  const x = point[0] * (canvas.width / (video.videoWidth || 1920));
+                  const y = point[1] * (canvas.height / (video.videoHeight || 1080));
+                  
+                  if (index === 0) {
+                    ctx.moveTo(x, y);
+                  } else {
+                    ctx.lineTo(x, y);
+                  }
+                });
+                ctx.closePath();
+                ctx.stroke();
+                
+                // Draw zone name with darker background
+                if (zone.polygon.length > 0) {
+                  const centerX = zone.polygon.reduce((sum: number, point: any) => sum + point[0], 0) / zone.polygon.length;
+                  const centerY = zone.polygon.reduce((sum: number, point: any) => sum + point[1], 0) / zone.polygon.length;
+                  const scaledCenterX = centerX * (canvas.width / (video.videoWidth || 1920));
+                  const scaledCenterY = centerY * (canvas.height / (video.videoHeight || 1080));
+                  
+                  // Draw darker background for zone name
+                  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                  ctx.fillRect(scaledCenterX - 40, scaledCenterY - 15, 80, 20);
+                  
+                  ctx.fillStyle = '#ffffff';
+                  ctx.font = '12px Arial';
+                  ctx.textAlign = 'center';
+                  ctx.fillText(zone.zone_name, scaledCenterX, scaledCenterY);
+                }
+              }
+            });
+            ctx.setLineDash([]); // Reset line dash
+          }
+
+          // Draw tracking boxes and labels for each detected person
+          currentPeople.forEach((person: any) => {
+            // Find the log entry for current frame
+            const currentLogEntry = person.log.find((logEntry: any) => logEntry.frame === currentFrame);
+            if (!currentLogEntry || !currentLogEntry.bbox || !Array.isArray(currentLogEntry.bbox) || currentLogEntry.bbox.length < 4) return;
+
+            const [x1, y1, x2, y2] = currentLogEntry.bbox;
+            const width = x2 - x1;
+            const height = y2 - y1;
+
+            // Scale coordinates to canvas size
+            const scaleX = canvas.width / (video.videoWidth || 1920);
+            const scaleY = canvas.height / (video.videoHeight || 1080);
+
+            const scaledX1 = x1 * scaleX;
+            const scaledY1 = y1 * scaleY;
+            const scaledWidth = width * scaleX;
+            const scaledHeight = height * scaleY;
+
+            // Draw bounding box (thinner)
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(scaledX1, scaledY1, scaledWidth, scaledHeight);
+
+            // Draw label background - different info based on video mode
+            const labelText = [];
+            
+            if (isProcessedVideoMain) {
+              // Processed Video mode - show selected tracking info with cycling
+              const selectedOptions = [];
+              if (trackingOptions.gender && person.gender) {
+                selectedOptions.push({ type: 'gender', value: person.gender });
+              }
+              if (trackingOptions.age && person.age) {
+                selectedOptions.push({ type: 'age', value: person.age });
+              }
+              if (trackingOptions.attire && person.upper_wear && person.lower_wear) {
+                selectedOptions.push({ type: 'attire', value: `${person.upper_wear}/${person.lower_wear}` });
+              }
+              
+              // Cycle through selected options every 1 second for smoother display
+              if (selectedOptions.length > 0) {
+                const cycleIndex = Math.floor(Date.now() / 1000) % selectedOptions.length;
+                const currentOption = selectedOptions[cycleIndex];
+                labelText.push(`${currentOption.type}: ${currentOption.value}`);
+              }
+            } else {
+              // Original Video mode - show minimal info
+              if (person.custom_id) {
+                labelText.push(`ID: ${person.custom_id}`);
+              }
+            }
+
+            if (labelText.length > 0) {
+              const text = labelText.join(' | ');
+              const textMetrics = ctx.measureText(text);
+              const labelHeight = 20;
+              const labelWidth = textMetrics.width + 10;
+
+              // Draw label background
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+              ctx.fillRect(scaledX1, scaledY1 - labelHeight, labelWidth, labelHeight);
+
+              // Draw label text
+              ctx.fillStyle = '#ffffff';
+              ctx.font = '12px Arial';
+              ctx.textAlign = 'left';
+              ctx.fillText(text, scaledX1 + 5, scaledY1 - 5);
+            }
+          });
+        };
+        
+        drawTrackingOverlay('tracking-canvas', 'main-video');
+      }, 100);
+    }
+  }, [isProcessedVideoMain, trackingData, trackingOptions]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -1179,7 +1358,7 @@ export default function Index() {
                                   }
                                   
                                   if (selectedOptions.length > 0) {
-                                    const cycleIndex = Math.floor(Date.now() / 2000) % selectedOptions.length;
+                                    const cycleIndex = Math.floor(Date.now() / 1000) % selectedOptions.length;
                                     const currentOption = selectedOptions[cycleIndex];
                                     labelText.push(`${currentOption.type}: ${currentOption.value}`);
                                   }
