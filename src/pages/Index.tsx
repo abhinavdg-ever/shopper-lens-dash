@@ -233,6 +233,17 @@ export default function Index() {
     return () => clearInterval(timer);
   }, [isTrackingPaused, isCustomTime]);
 
+  // Update current time from custom time when in custom time mode
+  useEffect(() => {
+    if (!isCustomTime || !customTime || isTrackingPaused) return;
+    
+    const timer = setInterval(() => {
+      setCurrentTime(prevTime => new Date(prevTime.getTime() + 1000));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isCustomTime, customTime, isTrackingPaused]);
+
   // Sync videos when they load and ensure continuous playback
   useEffect(() => {
     const syncVideos = () => {
@@ -619,7 +630,7 @@ export default function Index() {
               )}
               {isCustomTime && customTime && (
                 <span className="text-xs text-muted-foreground">
-                  Viewing: {customTime.toLocaleString()}
+                  Viewing: {customTime.toLocaleString()} Onwards
                 </span>
               )}
             </div>
