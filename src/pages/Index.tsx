@@ -1671,14 +1671,29 @@ export default function Index() {
                 className="mb-6"
               />
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <MetricCard
-                  title="Live Customer Count"
-                  value={liveMetrics.customerCount.toString()}
-                  subtitle="Currently in store"
-                  trend="up"
-                  trendValue={liveMetrics.trendValue || "+8 from last hour"}
-                  badge={{ text: "Live", variant: "default" }}
-                  />
+                  <div className="bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-xl p-6 shadow-sm">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-medium text-muted-foreground">Live Customer Count</h3>
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                        Live
+                      </span>
+                    </div>
+                    <div className="text-2xl font-bold text-foreground mb-1">
+                      {liveMetrics.customerCount.toString()}
+                    </div>
+                    <div className="text-sm text-muted-foreground mb-2">
+                      Currently in store
+                    </div>
+                    <div className={`text-sm font-medium ${
+                      liveMetrics.trendValue?.startsWith('+') 
+                        ? 'text-green-600' 
+                        : liveMetrics.trendValue?.startsWith('-') 
+                        ? 'text-red-600' 
+                        : 'text-muted-foreground'
+                    }`}>
+                      {liveMetrics.trendValue || "+8 from last hour"}
+                    </div>
+                  </div>
                   <MetricCard
                   title="Gender Split"
                   value={liveMetrics.genderSplit}
