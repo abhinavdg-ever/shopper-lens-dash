@@ -173,6 +173,61 @@ export default function Index() {
   const [trackingData, setTrackingData] = React.useState<any>(null);
   const [isLoadingTrackingData, setIsLoadingTrackingData] = React.useState(false);
   const [currentFrame, setCurrentFrame] = React.useState(0);
+  const [videoFPS, setVideoFPS] = React.useState<number>(13.09); // Default fallback
+  
+  // Function to detect video FPS automatically
+  const detectVideoFPS = (video: HTMLVideoElement): Promise<number> => {
+    return new Promise((resolve) => {
+      if (video.duration && video.videoWidth && video.videoHeight) {
+        // Method 1: Try to get FPS from video metadata
+        const videoElement = video as any;
+        if (videoElement.webkitVideoDecodedByteCount !== undefined) {
+          // This is a rough estimation method
+          const startTime = performance.now();
+          video.currentTime = 0;
+          video.play();
+          
+          const checkFrame = () => {
+            if (video.currentTime > 0.1) { // After 100ms
+              const endTime = performance.now();
+              const timeDiff = (endTime - startTime) / 1000;
+              const estimatedFPS = video.currentTime / timeDiff;
+              video.pause();
+              video.currentTime = 0;
+              resolve(Math.round(estimatedFPS * 10) / 10); // Round to 1 decimal
+            } else {
+              requestAnimationFrame(checkFrame);
+            }
+          };
+          checkFrame();
+        } else {
+          // Method 2: Use a more reliable approach with frame counting
+          let frameCount = 0;
+          const startTime = performance.now();
+          video.currentTime = 0;
+          video.play();
+          
+          const countFrames = () => {
+            if (video.currentTime < 1) { // Count for 1 second
+              frameCount++;
+              requestAnimationFrame(countFrames);
+            } else {
+              const endTime = performance.now();
+              const timeDiff = (endTime - startTime) / 1000;
+              const detectedFPS = frameCount / timeDiff;
+              video.pause();
+              video.currentTime = 0;
+              resolve(Math.round(detectedFPS * 10) / 10);
+            }
+          };
+          countFrames();
+        }
+      } else {
+        // Fallback to default
+        resolve(13.09);
+      }
+    });
+  };
   
   // Live metrics state for auto-refresh
   const [liveMetrics, setLiveMetrics] = React.useState({
@@ -423,7 +478,7 @@ export default function Index() {
 
       // Get current frame data based on video time
       const videoTime = video.currentTime;
-      const fps = 30; // Assuming 30 FPS
+      const fps = videoFPS; // Use detected FPS
       const currentFrame = Math.floor(videoTime * fps);
 
       // Find people currently in the frame
@@ -566,7 +621,7 @@ export default function Index() {
     // Draw overlay every frame
     const drawInterval = setInterval(() => {
       drawTrackingOverlay('tracking-canvas', 'main-video');
-    }, 1000 / 30); // 30 FPS
+    }, 1000 / videoFPS); // Match detected video FPS
 
     // Also start drawing immediately when video loads
     const mainVideo = document.getElementById('main-video') as HTMLVideoElement;
@@ -578,6 +633,20 @@ export default function Index() {
     if (mainVideo) {
       mainVideo.addEventListener('loadeddata', startDrawing);
       mainVideo.addEventListener('play', startDrawing);
+      
+      // Detect video FPS when video loads
+      const detectFPS = async () => {
+        try {
+          const detectedFPS = await detectVideoFPS(mainVideo);
+          setVideoFPS(detectedFPS);
+          console.log('Detected video FPS:', detectedFPS);
+        } catch (error) {
+          console.log('FPS detection failed, using default:', error);
+          setVideoFPS(13.09);
+        }
+      };
+      
+      mainVideo.addEventListener('loadedmetadata', detectFPS);
     }
     
     return () => {
@@ -587,7 +656,7 @@ export default function Index() {
         mainVideo.removeEventListener('play', startDrawing);
       }
     };
-  }, [trackingData, trackingOptions, isProcessedVideoMain]);
+  }, [trackingData, trackingOptions, isProcessedVideoMain, videoFPS]);
 
   // Force tracking to start immediately when video loads
   useEffect(() => {
@@ -652,7 +721,7 @@ export default function Index() {
 
           // Get current frame data based on video time
           const videoTime = video.currentTime;
-          const fps = 30; // Assuming 30 FPS
+          const fps = videoFPS; // Use detected FPS
           const currentFrame = Math.floor(videoTime * fps);
 
           // Find people currently in the frame
@@ -795,7 +864,7 @@ export default function Index() {
         drawTrackingOverlay('tracking-canvas', 'main-video');
       }, 100);
     }
-  }, [isProcessedVideoMain, trackingData, trackingOptions]);
+  }, [isProcessedVideoMain, trackingData, trackingOptions, videoFPS]);
 
   return (
     <div className="min-h-screen bg-background">
