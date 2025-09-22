@@ -396,11 +396,11 @@ export default function Index() {
       if (mainVideo && !mainVideo.paused) {
         // Use actual video time for more accurate tracking
         const videoTime = mainVideo.currentTime;
-        currentFrame = Math.floor(videoTime * 30); // 30 FPS
+        currentFrame = Math.floor(videoTime * videoFPS); // Use detected FPS
       } else {
         // Fallback to simulated time
         const currentTime = Date.now() / 1000;
-        currentFrame = Math.floor(currentTime * 30) % 1000;
+        currentFrame = Math.floor(currentTime * videoFPS) % 1000; // Use detected FPS
       }
       
       // Find people currently in the frame
@@ -447,11 +447,11 @@ export default function Index() {
 
     calculateLiveMetrics();
     
-    // Update every 2 seconds
-    const interval = setInterval(calculateLiveMetrics, 2000);
+    // Update every 1 second for more responsive live metrics
+    const interval = setInterval(calculateLiveMetrics, 1000);
     
     return () => clearInterval(interval);
-  }, [trackingData]);
+  }, [trackingData, videoFPS]);
 
   // Draw tracking overlays on canvas
   useEffect(() => {
@@ -1395,7 +1395,7 @@ export default function Index() {
                     {liveMetrics.customerCount.toString()}
                   </div>
                   <div className="text-sm text-muted-foreground mb-2">
-                    Currently in store
+                    Currently in Camera View
                   </div>
                   <div className={`text-sm font-medium ${
                     liveMetrics.trendValue?.startsWith('+') 
