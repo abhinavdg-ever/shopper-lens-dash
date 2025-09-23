@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { 
   Store, 
   Factory, 
-  Shield, 
+  CreditCard, 
   GraduationCap, 
   Truck, 
   Building2,
@@ -20,7 +20,7 @@ const Landing = () => {
   const industries = [
     {
       id: 'retail',
-      title: 'Retail/Restaurants',
+      title: 'Retail',
       subtitle: 'Store Level Insights',
       description: 'Customer behavior analytics, queue management, and store optimization insights.',
       icon: Store,
@@ -41,13 +41,13 @@ const Landing = () => {
       hoverColor: 'hover:bg-orange-600'
     },
     {
-      id: 'security',
-      title: 'Security',
-      subtitle: 'Surveillance & Monitoring',
-      description: 'Advanced security monitoring and threat detection systems.',
-      icon: Shield,
+      id: 'restaurants',
+      title: 'Restaurants',
+      subtitle: 'Food Service Analytics',
+      description: 'Customer analytics and operational efficiency for food service.',
+      icon: CreditCard,
       enabled: false,
-      features: ['Threat Detection', 'Access Control', 'Incident Response', 'Compliance Monitoring'],
+      features: ['Customer Tracking', 'Queue Analytics', 'Order Analytics', 'Staff Optimization'],
       color: 'bg-orange-500',
       hoverColor: 'hover:bg-orange-600'
     },
@@ -98,14 +98,14 @@ const Landing = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Header */}
       <div className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-xl">A</span>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">AlgoSights</h1>
+                <h1 className="text-3xl font-bold text-slate-900">Algosights</h1>
                 <p className="text-sm text-slate-600">AI-Powered Video Feed Analysis Platform</p>
               </div>
             </div>
@@ -204,7 +204,7 @@ const Landing = () => {
         {/* Footer Info */}
         <div className="mt-16 text-center">
           <p className="text-slate-600 mb-4">
-            Need help choosing? Contact our team for personalized recommendations.
+            Contact our team for personalized recommendations.
           </p>
           <div className="flex justify-center space-x-6 text-sm text-slate-500">
             <span>✓ Enterprise Ready</span>

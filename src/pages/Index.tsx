@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ChartCard } from "@/components/dashboard/ChartCard";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SectionHeader } from "@/components/dashboard/SectionHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarIcon, ArrowLeft, Crown } from "lucide-react";
 import { format } from "date-fns";
 import { 
@@ -29,7 +31,8 @@ import {
   AreaChart,
   ScatterChart,
   Scatter,
-  ComposedChart
+  ComposedChart,
+  Legend
 } from "recharts";
 
 // Video Feed Derived Data
@@ -50,13 +53,55 @@ const heatMapData = [
 ];
 
 const hourlyFootfallData = [
-  { hour: "9AM", visitors: 120, dwellTime: 4.2, conversion: 12 },
-  { hour: "11AM", visitors: 280, dwellTime: 6.8, conversion: 18 },
-  { hour: "1PM", visitors: 450, dwellTime: 8.1, conversion: 22 },
-  { hour: "3PM", visitors: 380, dwellTime: 7.3, conversion: 19 },
-  { hour: "5PM", visitors: 620, dwellTime: 9.2, conversion: 28 },
-  { hour: "7PM", visitors: 750, dwellTime: 10.5, conversion: 32 },
-  { hour: "9PM", visitors: 340, dwellTime: 5.8, conversion: 15 }
+  { hour: "9:00", visitors: 120, dwellTime: 4.2, conversion: 12, footfall: 120 },
+  { hour: "9:15", visitors: 135, dwellTime: 4.5, conversion: 13, footfall: 135 },
+  { hour: "9:30", visitors: 150, dwellTime: 4.8, conversion: 14, footfall: 150 },
+  { hour: "9:45", visitors: 165, dwellTime: 5.1, conversion: 15, footfall: 165 },
+  { hour: "10:00", visitors: 180, dwellTime: 5.4, conversion: 16, footfall: 180 },
+  { hour: "10:15", visitors: 195, dwellTime: 5.7, conversion: 17, footfall: 195 },
+  { hour: "10:30", visitors: 210, dwellTime: 6.0, conversion: 18, footfall: 210 },
+  { hour: "10:45", visitors: 225, dwellTime: 6.3, conversion: 19, footfall: 225 },
+  { hour: "11:00", visitors: 240, dwellTime: 6.6, conversion: 20, footfall: 240 },
+  { hour: "11:15", visitors: 255, dwellTime: 6.9, conversion: 21, footfall: 255 },
+  { hour: "11:30", visitors: 270, dwellTime: 7.2, conversion: 22, footfall: 270 },
+  { hour: "11:45", visitors: 285, dwellTime: 7.5, conversion: 23, footfall: 285 },
+  { hour: "12:00", visitors: 300, dwellTime: 7.8, conversion: 24, footfall: 300 },
+  { hour: "12:15", visitors: 315, dwellTime: 8.1, conversion: 25, footfall: 315 },
+  { hour: "12:30", visitors: 330, dwellTime: 8.4, conversion: 26, footfall: 330 },
+  { hour: "12:45", visitors: 345, dwellTime: 8.7, conversion: 27, footfall: 345 },
+  { hour: "13:00", visitors: 360, dwellTime: 9.0, conversion: 28, footfall: 360 },
+  { hour: "13:15", visitors: 375, dwellTime: 9.3, conversion: 29, footfall: 375 },
+  { hour: "13:30", visitors: 390, dwellTime: 9.6, conversion: 30, footfall: 390 },
+  { hour: "13:45", visitors: 405, dwellTime: 9.9, conversion: 31, footfall: 405 },
+  { hour: "14:00", visitors: 420, dwellTime: 10.2, conversion: 32, footfall: 420 },
+  { hour: "14:15", visitors: 435, dwellTime: 10.5, conversion: 33, footfall: 435 },
+  { hour: "14:30", visitors: 450, dwellTime: 10.8, conversion: 34, footfall: 450 },
+  { hour: "14:45", visitors: 465, dwellTime: 11.1, conversion: 35, footfall: 465 },
+  { hour: "15:00", visitors: 480, dwellTime: 11.4, conversion: 36, footfall: 480 },
+  { hour: "15:15", visitors: 495, dwellTime: 11.7, conversion: 37, footfall: 495 },
+  { hour: "15:30", visitors: 510, dwellTime: 12.0, conversion: 38, footfall: 510 },
+  { hour: "15:45", visitors: 525, dwellTime: 12.3, conversion: 39, footfall: 525 },
+  { hour: "16:00", visitors: 540, dwellTime: 12.6, conversion: 40, footfall: 540 },
+  { hour: "16:15", visitors: 555, dwellTime: 12.9, conversion: 41, footfall: 555 },
+  { hour: "16:30", visitors: 570, dwellTime: 13.2, conversion: 42, footfall: 570 },
+  { hour: "16:45", visitors: 585, dwellTime: 13.5, conversion: 43, footfall: 585 },
+  { hour: "17:00", visitors: 600, dwellTime: 13.8, conversion: 44, footfall: 600 },
+  { hour: "17:15", visitors: 615, dwellTime: 14.1, conversion: 45, footfall: 615 },
+  { hour: "17:30", visitors: 630, dwellTime: 14.4, conversion: 46, footfall: 630 },
+  { hour: "17:45", visitors: 645, dwellTime: 14.7, conversion: 47, footfall: 645 },
+  { hour: "18:00", visitors: 660, dwellTime: 15.0, conversion: 48, footfall: 660 },
+  { hour: "18:15", visitors: 675, dwellTime: 15.3, conversion: 49, footfall: 675 },
+  { hour: "18:30", visitors: 690, dwellTime: 15.6, conversion: 50, footfall: 690 },
+  { hour: "18:45", visitors: 705, dwellTime: 15.9, conversion: 51, footfall: 705 },
+  { hour: "19:00", visitors: 720, dwellTime: 16.2, conversion: 52, footfall: 720 },
+  { hour: "19:15", visitors: 735, dwellTime: 16.5, conversion: 53, footfall: 735 },
+  { hour: "19:30", visitors: 750, dwellTime: 16.8, conversion: 54, footfall: 750 },
+  { hour: "19:45", visitors: 765, dwellTime: 17.1, conversion: 55, footfall: 765 },
+  { hour: "20:00", visitors: 780, dwellTime: 17.4, conversion: 56, footfall: 780 },
+  { hour: "20:15", visitors: 795, dwellTime: 17.7, conversion: 57, footfall: 795 },
+  { hour: "20:30", visitors: 810, dwellTime: 18.0, conversion: 58, footfall: 810 },
+  { hour: "20:45", visitors: 825, dwellTime: 18.3, conversion: 59, footfall: 825 },
+  { hour: "21:00", visitors: 840, dwellTime: 18.6, conversion: 60, footfall: 840 }
 ];
 
 const customerJourneyData = [
@@ -187,11 +232,11 @@ export default function Index() {
   const [selectedStoreIds, setSelectedStoreIds] = React.useState<string[]>([]);
   
   // Simple Store Selection (for Individual Store mode)
-  const [selectedIndividualStore, setSelectedIndividualStore] = React.useState('all');
+  const [selectedIndividualStore, setSelectedIndividualStore] = React.useState('store-3301');
+  
   
   // Simple store list for individual selection
   const individualStores = [
-    { value: 'all', label: 'All Stores' },
     { value: 'store-3301', label: 'Store #3301 - Downtown' },
     { value: 'store-3302', label: 'Store #3302 - Mall Location' },
     { value: 'store-3303', label: 'Store #3303 - Suburban' },
@@ -1005,30 +1050,28 @@ export default function Index() {
       <header className="border-b bg-card">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => navigate('/')}
-                className="flex items-center space-x-2"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Back</span>
-              </Button>
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-xl">A</span>
-                </div>
-                <div>
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-xl">A</span>
+              </div>
+              <div>
           <h1 className="text-3xl font-bold text-foreground">
-                    AlgoSights
+                  Algosights
           </h1>
           <p className="text-muted-foreground mt-1">
-                    AI-Powered Video Feed Analysis Platform
-          </p>
-                </div>
+                  AI-Powered Video Feed Analysis Platform
+                </p>
               </div>
             </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigate('/')}
+              className="flex items-center space-x-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back</span>
+            </Button>
           </div>
         </div>
       </header>
@@ -1062,10 +1105,9 @@ export default function Index() {
         )}
 
         <Tabs defaultValue="customer" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="customer">Customer Analytics</TabsTrigger>
             <TabsTrigger value="employee">Employee & Operational Analysis</TabsTrigger>
-            <TabsTrigger value="insights">Store-Zone Insights</TabsTrigger>
             <TabsTrigger value="video" className="flex items-center space-x-2">
               <span>Video Feed</span>
               <Crown className="w-4 h-4 text-yellow-500" />
@@ -1091,12 +1133,9 @@ export default function Index() {
                     <p className="text-orange-700 text-sm">Video Feed Analysis is available only with Premium subscription. Upgrade to access real-time video monitoring and AI-powered analytics.</p>
                   </div>
                 </div>
-                <div className="mt-4 flex space-x-3">
+                <div className="mt-4">
                   <Button className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white">
-                    Upgrade to Premium
-                  </Button>
-                  <Button variant="outline" className="border-orange-300 text-orange-700 hover:bg-orange-50">
-                    Learn More
+                    Talk to our Sales Team to upgrade
                   </Button>
                 </div>
               </div>
@@ -1109,11 +1148,11 @@ export default function Index() {
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-foreground">Video Sources</h3>
                     <Dialog open={isAddSourceModalOpen} onOpenChange={setIsAddSourceModalOpen}>
-                      <DialogTrigger asChild>
-                        <button className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded">
-                          + Add Source
-                        </button>
-                      </DialogTrigger>
+                        <DialogTrigger asChild>
+                          <button className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded">
+                            + Add Source
+                          </button>
+                        </DialogTrigger>
                       <DialogContent className="sm:max-w-[425px]">
                         <DialogHeader>
                           <DialogTitle>Connect New Video Source</DialogTitle>
@@ -1129,7 +1168,7 @@ export default function Index() {
                               <option value="store">Store</option>
                               <option value="warehouse">Warehouse</option>
                             </select>
-              </div>
+                          </div>
                           
                           {sourceType === 'store' && (
                             <div>
@@ -1144,7 +1183,7 @@ export default function Index() {
                                   <option key={id} value={id}>Store ID #{id}</option>
                                 ))}
                               </select>
-                </div>
+                            </div>
                           )}
                           
                           {sourceType === 'warehouse' && (
@@ -1170,7 +1209,7 @@ export default function Index() {
                               <option>Google Cloud Storage</option>
                               <option>Azure Blob Storage</option>
                             </select>
-              </div>
+                          </div>
                           <div>
                             <label className="text-sm font-medium text-foreground">Bucket Name</label>
                             <input type="text" placeholder="my-video-bucket" className="w-full mt-1 p-2 border border-border rounded-lg bg-background" />
@@ -1183,7 +1222,7 @@ export default function Index() {
                             <Button variant="outline" onClick={() => setIsAddSourceModalOpen(false)}>
                               Cancel
                             </Button>
-          <Button onClick={() => {
+                            <Button onClick={() => {
             // Add new source to the list
             const newId = Math.max(...videoSources.map(s => s.id)) + 1;
             const newSource = {
@@ -1206,8 +1245,8 @@ export default function Index() {
             // Hide notification after 5 seconds
             setTimeout(() => setShowConfigNotification(false), 5000);
           }}>
-            Connect & Save
-          </Button>
+                              Connect & Save
+                            </Button>
                           </div>
                         </div>
                       </DialogContent>
@@ -1255,7 +1294,8 @@ export default function Index() {
             </div>
           ))}
         </div>
-                </div>
+      </div>
+
 
 
                 {/* Multi-Select Tracking Controls */}
@@ -1552,7 +1592,7 @@ export default function Index() {
             <section>
               <SectionHeader 
                 title="Live Insights" 
-                description="Based on Last 1 hour"
+                description="Real-time analytics and monitoring"
                 className="mb-6"
               />
               
@@ -1580,7 +1620,7 @@ export default function Index() {
                     {liveMetrics.trendValue || "+8 from last hour"}
                   </div>
                 </div>
-
+                
                 <div className="bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-xl p-6 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm font-medium text-muted-foreground">Gender Split</h3>
@@ -1622,263 +1662,397 @@ export default function Index() {
                 className="mb-6"
               />
 
-            {/* Filters */}
-            <div className="flex flex-wrap items-center gap-4 mb-6">
-              {/* State Filter */}
+            {/* Store Selection */}
+            <div className="flex items-center gap-4 mb-6">
               <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium text-foreground">State:</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-[200px] justify-start text-left font-normal">
-                      {selectedStates.length === 0 ? "All States" : `${selectedStates.length} selected`}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[200px] p-2">
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2 border-b pb-2">
-                        <Checkbox
-                          id="select-all-states"
-                          checked={selectedStates.length === Object.keys(locationData).length}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedStates(Object.keys(locationData));
-                            } else {
-                              setSelectedStates([]);
-                              setSelectedCities([]);
-                              setSelectedStoreIds([]);
-                            }
-                          }}
-                        />
-                        <label htmlFor="select-all-states" className="text-sm font-medium font-semibold">
-                          Select All
-                        </label>
-                      </div>
-                      {Object.keys(locationData).map((state) => (
-                        <div key={state} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`state-${state}`}
-                            checked={selectedStates.includes(state)}
-                            onCheckedChange={(checked) => handleStateChange(state, checked as boolean)}
-                          />
-                          <label htmlFor={`state-${state}`} className="text-sm font-medium">
-                            {state}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              {/* City Filter */}
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium text-foreground">City:</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-[200px] justify-start text-left font-normal">
-                      {selectedCities.length === 0 ? "All Cities" : `${selectedCities.length} selected`}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[200px] p-2">
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2 border-b pb-2">
-                        <Checkbox
-                          id="select-all-cities"
-                          checked={selectedCities.length === getAvailableCities().length && getAvailableCities().length > 0}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedCities(getAvailableCities());
-                            } else {
-                              setSelectedCities([]);
-                              setSelectedStoreIds([]);
-                            }
-                          }}
-                        />
-                        <label htmlFor="select-all-cities" className="text-sm font-medium font-semibold">
-                          Select All
-                        </label>
-                      </div>
-                      {getAvailableCities().map((city) => (
-                        <div key={city} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`city-${city}`}
-                            checked={selectedCities.includes(city)}
-                            onCheckedChange={(checked) => handleCityChange(city, checked as boolean)}
-                          />
-                          <label htmlFor={`city-${city}`} className="text-sm font-medium">
-                            {city}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-                </div>
-
-              {/* Store ID Filter */}
-              <div className="flex items-center space-x-2">
-                <label className="text-sm font-medium text-foreground">Store ID:</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-[200px] justify-start text-left font-normal">
-                      {selectedStoreIds.length === 0 ? "All Stores" : `${selectedStoreIds.length} selected`}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[250px] p-2 max-h-[300px] overflow-y-auto">
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2 border-b pb-2">
-                        <Checkbox
-                          id="select-all-stores"
-                          checked={selectedStoreIds.length === getAvailableStores().length && getAvailableStores().length > 0}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedStoreIds(getAvailableStores());
-                            } else {
-                              setSelectedStoreIds([]);
-                            }
-                          }}
-                        />
-                        <label htmlFor="select-all-stores" className="text-sm font-medium font-semibold">
-                          Select All
-                        </label>
-                      </div>
-                      {getAvailableStores().map((store) => (
-                        <div key={store} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`store-${store}`}
-                            checked={selectedStoreIds.includes(store)}
-                            onCheckedChange={(checked) => handleStoreChange(store, checked as boolean)}
-                          />
-                          <label htmlFor={`store-${store}`} className="text-sm font-medium">
-                            {store}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              {/* Date Range Filter */}
-              <div className="flex items-center space-x-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-[280px] justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {customerDateRange ? (
-                      `${format(customerDateRange.from, "MMM dd")} - ${format(customerDateRange.to, "MMM dd, yyyy")}`
-                    ) : (
-                      "Select date range"
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="range"
-                    defaultMonth={customerDateRange?.from}
-                    selected={customerDateRange}
-                    onSelect={(range) => setCustomerDateRange(range as { from: Date; to: Date } | undefined)}
-                    numberOfMonths={2}
-                  />
-                </PopoverContent>
-              </Popover>
-                </div>
-              </div>
-
-            {/* Key Customer Metrics */}
-            <section>
-              <SectionHeader 
-                title="Key Customer Metrics" 
-                description="Essential customer performance indicators"
-                className="mb-6"
-              />
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <MetricCard
-                  title="Customer Satisfaction"
-                  value={`${satisfactionIndex}%`}
-                  subtitle="During peak hours Below target during rush"
-                  trend="+2.3%"
-                  trendDirection="up"
-                  icon="😊"
-                />
-                <MetricCard
-                  title="Total Footfall"
-                  value={customerMetrics.footfall.toLocaleString()}
-                  subtitle="Today's visitors"
-                  trend="+12%"
-                  trendDirection="up"
-                  icon="👥"
-                />
-                <MetricCard
-                  title="Conversion Rate"
-                  value={`${customerMetrics.conversion}%`}
-                  subtitle="Entry to purchase"
-                  trend="+2.3%"
-                  trendDirection="up"
-                  icon="💰"
-                  />
-                  <MetricCard
-                  title="Time to Checkout"
-                  value={`${customerMetrics.checkoutTime} min`}
-                  subtitle="Per customer visit"
-                  trend="+0.5 min"
-                  trendDirection="up"
-                  icon="⏱️"
-                />
-              </div>
-            </section>
-
-            {/* Hourly Patterns & Queue Management */}
-            <section>
-              <SectionHeader 
-                title="Hourly Patterns & Queue Management" 
-                description="Customer flow patterns and queue performance throughout the day"
-                className="mb-6"
-              />
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <ChartCard
-                  title="Hourly Footfall & Conversion"
-                  description="Customer traffic and conversion rates by hour"
+                <label className="text-sm font-medium text-foreground">Store:</label>
+                <select 
+                  value={selectedIndividualStore}
+                  onChange={(e) => setSelectedIndividualStore(e.target.value)}
+                  className="px-3 py-2 border border-border rounded-lg bg-background text-sm w-[250px]"
                 >
+                  {individualStores.map((store) => (
+                    <option key={store.value} value={store.value}>
+                      {store.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+                </div>
+
+            {/* Today's Metrics */}
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-foreground">Today's Metrics</h2>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-sm text-muted-foreground">CCTV Online</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Last synced: {(() => {
+                      const now = new Date();
+                      const seconds = now.getSeconds();
+                      
+                      // Cycle from 18:45 to 18:59 and reset every 15 seconds
+                      const cycleSeconds = seconds % 15;
+                      const cycleMinutes = 45 + Math.floor(seconds / 15);
+                      
+                      return `18:${cycleMinutes.toString().padStart(2, '0')}:${cycleSeconds.toString().padStart(2, '0')}`;
+                    })()}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Footfalls</CardTitle>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">1,247</div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-green-600">+12%</span> from yesterday
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">23.4%</div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-green-600">+2.1%</span> from yesterday
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Time To Checkout</CardTitle>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">4.2 min</div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-red-600">+0.3 min</span> from yesterday
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Live Customer Count</CardTitle>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{liveMetrics.customerCount}</div>
+                    <p className="text-xs text-muted-foreground">
+                      As per last sync
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* 15-minute Footfalls Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Total Footfalls (Cumulative at 15-minute Intervals)</CardTitle>
+                  <CardDescription className="text-sm">Real-time footfall data with auto-refresh</CardDescription>
+                </CardHeader>
+                <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <ComposedChart data={hourlyFootfallData}>
+                    <LineChart data={[
+                      { hour: "09:00", footfall: 11 },
+                      { hour: "09:15", footfall: 23 },
+                      { hour: "09:30", footfall: 32 },
+                      { hour: "09:45", footfall: 39 },
+                      { hour: "10:00", footfall: 52 },
+                      { hour: "10:15", footfall: 70 },
+                      { hour: "10:30", footfall: 87 },
+                      { hour: "10:45", footfall: 106 },
+                      { hour: "11:00", footfall: 137 },
+                      { hour: "11:15", footfall: 175 },
+                      { hour: "11:30", footfall: 227 },
+                      { hour: "11:45", footfall: 287 },
+                      { hour: "12:00", footfall: 345 },
+                      { hour: "12:15", footfall: 406 },
+                      { hour: "12:30", footfall: 459 },
+                      { hour: "12:45", footfall: 502 },
+                      { hour: "13:00", footfall: 533 },
+                      { hour: "13:15", footfall: 558 },
+                      { hour: "13:30", footfall: 580 },
+                      { hour: "13:45", footfall: 591 },
+                      { hour: "14:00", footfall: 606 },
+                      { hour: "14:15", footfall: 617 },
+                      { hour: "14:30", footfall: 638 },
+                      { hour: "14:45", footfall: 665 },
+                      { hour: "15:00", footfall: 696 },
+                      { hour: "15:15", footfall: 746 },
+                      { hour: "15:30", footfall: 803 },
+                      { hour: "15:45", footfall: 868 },
+                      { hour: "16:00", footfall: 943 },
+                      { hour: "16:15", footfall: 1015 },
+                      { hour: "16:30", footfall: 1070 },
+                      { hour: "16:45", footfall: 1116 },
+                      { hour: "17:00", footfall: 1152 },
+                      { hour: "17:15", footfall: 1179 },
+                      { hour: "17:30", footfall: 1194 },
+                      { hour: "17:45", footfall: 1207 },
+                      { hour: "18:00", footfall: 1221 },
+                      { hour: "18:15", footfall: 1230 },
+                      { hour: "18:30", footfall: 1243 },
+                      { hour: "18:45", footfall: 1247 }
+                    ]}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="hour" />
-                      <YAxis yAxisId="left" />
-                      <YAxis yAxisId="right" orientation="right" />
+                      <YAxis />
                       <Tooltip />
-                      <Bar yAxisId="left" dataKey="visitors" fill="#3b82f6" name="Visitors" />
-                      <Line yAxisId="right" type="monotone" dataKey="conversion" stroke="#ef4444" strokeWidth={2} name="Conversion %" />
-                    </ComposedChart>
+                      <Line type="monotone" dataKey="footfall" stroke="#3b82f6" strokeWidth={2} />
+                    </LineChart>
                   </ResponsiveContainer>
-                </ChartCard>
+                </CardContent>
+              </Card>
+            </section>
 
-                <ChartCard
-                  title="Queue Analysis"
-                  description="Queue length and wait times throughout the day"
-                >
-                  <ResponsiveContainer width="100%" height={300}>
-                    <ComposedChart data={queueAnalysisData}>
+            {/* Customer Patterns & Trends */}
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-foreground">Customer Patterns & Trends (Medium to Long Term)</h2>
+                <div className="flex items-center space-x-2">
+                  <label className="text-sm font-medium text-foreground">Choose Date:</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-[200px] justify-start text-left font-normal">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {customerDateRange ? (
+                          `${format(customerDateRange.from, "MMM dd")} - ${format(customerDateRange.to, "MMM dd, yyyy")}`
+                        ) : (
+                          "Select date range"
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="range"
+                        defaultMonth={customerDateRange?.from}
+                        selected={customerDateRange}
+                        onSelect={(range) => setCustomerDateRange(range as { from: Date; to: Date } | undefined)}
+                        numberOfMonths={2}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Hourly Footfall & Conversion</CardTitle>
+                    <CardDescription className="text-sm">Customer traffic and conversion rates by hour over the specified period</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <ComposedChart data={[
+                        { hour: "9AM", visitors: 120, conversion: 12 },
+                        { hour: "10AM", visitors: 180, conversion: 16 },
+                        { hour: "11AM", visitors: 280, conversion: 18 },
+                        { hour: "12PM", visitors: 450, conversion: 22 },
+                        { hour: "1PM", visitors: 380, conversion: 19 },
+                        { hour: "2PM", visitors: 420, conversion: 25 },
+                        { hour: "3PM", visitors: 480, conversion: 20 },
+                        { hour: "4PM", visitors: 540, conversion: 24 },
+                        { hour: "5PM", visitors: 620, conversion: 28 },
+                        { hour: "6PM", visitors: 680, conversion: 30 },
+                        { hour: "7PM", visitors: 780, conversion: 32 },
+                        { hour: "8PM", visitors: 720, conversion: 28 },
+                        { hour: "9PM", visitors: 340, conversion: 15 }
+                      ]}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="time" />
-                      <YAxis yAxisId="left" />
-                      <YAxis yAxisId="right" orientation="right" />
+                        <XAxis dataKey="hour" />
+                        <YAxis yAxisId="left" />
+                        <YAxis yAxisId="right" orientation="right" />
                       <Tooltip />
-                      <Bar yAxisId="left" dataKey="queueLength" fill="#f59e0b" name="Queue Length" />
-                      <Line yAxisId="right" type="monotone" dataKey="satisfaction" stroke="#10b981" strokeWidth={2} name="Satisfaction %" />
-                    </ComposedChart>
+                        <Bar yAxisId="left" dataKey="visitors" fill="#3b82f6" name="Visitors" />
+                        <Line yAxisId="right" type="monotone" dataKey="conversion" stroke="#ef4444" strokeWidth={2} name="Conversion %" />
+                      </ComposedChart>
                   </ResponsiveContainer>
-                </ChartCard>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Conversion Funnel</CardTitle>
+                    <CardDescription className="text-sm">Customer journey from footfall to conversion</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-col items-center space-y-2 py-4">
+                      {/* Footfalls - Top (Widest) */}
+                      <div className="w-full max-w-lg bg-gray-800 text-white px-6 py-4 rounded-lg">
+                        <div className="text-center">
+                          <div className="text-xs font-medium text-gray-300">100%</div>
+                          <div className="text-sm font-semibold">Footfalls 1,247</div>
+                        </div>
+                </div>
+
+                      {/* Intent */}
+                      <div className="w-3/4 max-w-md bg-blue-600 text-white px-6 py-4 rounded-lg">
+                        <div className="text-center">
+                          <div className="text-xs font-medium text-blue-200">71%</div>
+                          <div className="text-sm font-semibold">Intent 892</div>
+                </div>
+              </div>
+                      
+                      {/* Engaged */}
+                      <div className="w-1/2 max-w-md bg-green-600 text-white px-6 py-4 rounded-lg">
+                        <div className="text-center">
+                          <div className="text-xs font-medium text-green-200">37%</div>
+                          <div className="text-sm font-semibold">Engaged 456</div>
+                        </div>
+                      </div>
+                      
+                      {/* Converted - Bottom (Narrowest) */}
+                      <div className="w-1/3 max-w-md bg-green-700 text-white px-6 py-4 rounded-lg">
+                        <div className="text-center">
+                          <div className="text-xs font-medium text-green-200">23%</div>
+                          <div className="text-sm font-semibold">Converted 291</div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             </section>
 
-            {/* Customer Demographics */}
+            {/* Additional Metrics Cards */}
+            <section>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Average Daily Footfalls</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">1,156</div>
+                    <p className="text-xs text-muted-foreground">
+                      Last 30 days average
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Customer Satisfaction</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">87%</div>
+                    <p className="text-xs text-muted-foreground">
+                      Based on AI Emotion Detection
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Potential Fraud Incidents</CardTitle>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 w-6 p-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          ⚙️
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>Configure Fraud Alerts</DialogTitle>
+                        </DialogHeader>
+                <div className="space-y-4">
+                          <div>
+                            <label className="text-sm font-medium">Email Address</label>
+                            <input 
+                              type="email" 
+                              placeholder="manager@store.com" 
+                              className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                          <div>
+                            <label className="text-sm font-medium">Phone Number</label>
+                            <input 
+                              type="tel" 
+                              placeholder="+1 (555) 123-4567" 
+                              className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                          <div>
+                            <label className="text-sm font-medium">Alert Threshold</label>
+                            <select className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                              <option>1+ incidents per hour</option>
+                              <option>2+ incidents per hour</option>
+                              <option>3+ incidents per hour</option>
+                              <option>5+ incidents per hour</option>
+                            </select>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <input type="checkbox" id="email-alerts" defaultChecked />
+                            <label htmlFor="email-alerts" className="text-sm">Email notifications</label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <input type="checkbox" id="sms-alerts" defaultChecked />
+                            <label htmlFor="sms-alerts" className="text-sm">SMS notifications</label>
+                          </div>
+                          <div className="flex justify-end space-x-2 pt-4">
+                            <Button variant="outline">Cancel</Button>
+                            <Button>Save Configuration</Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </CardHeader>
+                  <CardContent 
+                    className="cursor-pointer hover:bg-muted/50 transition-colors rounded-lg" 
+                    onClick={() => {
+                      alert("Fraud Incident Details:\n\n1. 14:23 - Suspicious behavior at checkout\n2. 16:45 - Multiple returns without receipt\n3. 18:12 - Unusual payment pattern detected");
+                    }}
+                  >
+                    <div className="text-2xl font-bold text-red-600">3</div>
+                    <p className="text-xs text-muted-foreground hover:text-blue-600">
+                      Click for Details
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Peak Customer Count</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">89</div>
+                    <p className="text-xs text-muted-foreground">
+                      {(() => {
+                        const selectedDate = dateRange?.from || new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+                        return selectedDate.toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric', 
+                          year: 'numeric' 
+                        }) + ' at 7:32 PM';
+                      })()}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </section>
+
+            {/* Demographics Deep-dive */}
             <section>
               <SectionHeader 
-                title="Customer Demographics" 
-                description="Customer composition and behavior patterns"
+                title="Demographics Deep-dive" 
                 className="mb-6"
               />
               
@@ -1903,6 +2077,12 @@ export default function Index() {
                         ))}
                       </Pie>
                       <Tooltip />
+                      <Legend 
+                        wrapperStyle={{ fontSize: '11px' }} 
+                        layout="horizontal" 
+                        verticalAlign="bottom" 
+                        align="center"
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </ChartCard>
@@ -1927,6 +2107,12 @@ export default function Index() {
                         ))}
                       </Pie>
                       <Tooltip />
+                      <Legend 
+                        wrapperStyle={{ fontSize: '11px' }} 
+                        layout="horizontal" 
+                        verticalAlign="bottom" 
+                        align="center"
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </ChartCard>
@@ -1951,6 +2137,12 @@ export default function Index() {
                         ))}
                       </Pie>
                       <Tooltip />
+                      <Legend 
+                        wrapperStyle={{ fontSize: '11px' }} 
+                        layout="horizontal" 
+                        verticalAlign="bottom" 
+                        align="center"
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </ChartCard>
@@ -1975,6 +2167,12 @@ export default function Index() {
                         ))}
                       </Pie>
                       <Tooltip />
+                      <Legend 
+                        wrapperStyle={{ fontSize: '11px' }} 
+                        layout="horizontal" 
+                        verticalAlign="bottom" 
+                        align="center"
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </ChartCard>
@@ -1990,8 +2188,477 @@ export default function Index() {
                 className="mb-6"
               />
 
-            {/* Filters */}
+            {/* Store Selection */}
             <div className="flex flex-wrap items-center gap-4 mb-6">
+              <div className="flex items-center space-x-2">
+                <label className="text-sm font-medium text-foreground">Store:</label>
+                <Select value={selectedIndividualStore} onValueChange={setSelectedIndividualStore}>
+                  <SelectTrigger className="w-[250px]">
+                    <SelectValue placeholder="Select store" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {individualStores.map((store) => (
+                      <SelectItem key={store.value} value={store.value}>
+                        {store.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+                </div>
+
+            {/* Today's Metrics */}
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-foreground">Today's Metrics</h2>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-sm text-muted-foreground">CCTV Online</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Last synced: {(() => {
+                      const now = new Date();
+                      const seconds = now.getSeconds();
+                      
+                      // Cycle from 18:45 to 18:59 and reset every 15 seconds
+                      const cycleSeconds = seconds % 15;
+                      const cycleMinutes = 45 + Math.floor(seconds / 15);
+                      
+                      return `18:${cycleMinutes.toString().padStart(2, '0')}:${cycleSeconds.toString().padStart(2, '0')}`;
+                    })()}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Store Open Time</CardTitle>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">9:37</div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-green-600">+2 min</span> from yesterday
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Staff On Duty</CardTitle>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">13/15</div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-red-600">-2</span> from yesterday
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Time Taken at Cash Counter</CardTitle>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">2.5 min</div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-green-600">-0.3 min</span> from yesterday
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Current Queue Length</CardTitle>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">8</div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-red-600">+3</span> from yesterday
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </section>
+
+            {/* Queue Length (15-minute intervals) */}
+            <section>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Queue Length (15-minute intervals)</CardTitle>
+                  <CardDescription className="text-sm">Real-time queue data with auto-refresh</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={[
+                        { time: "09:00", queueLength: 1 },
+                        { time: "09:15", queueLength: 2 },
+                        { time: "09:30", queueLength: 1 },
+                        { time: "09:45", queueLength: 3 },
+                        { time: "10:00", queueLength: 2 },
+                        { time: "10:15", queueLength: 4 },
+                        { time: "10:30", queueLength: 3 },
+                        { time: "10:45", queueLength: 5 },
+                        { time: "11:00", queueLength: 4 },
+                        { time: "11:15", queueLength: 6 },
+                        { time: "11:30", queueLength: 5 },
+                        { time: "11:45", queueLength: 7 },
+                        { time: "12:00", queueLength: 6 },
+                        { time: "12:15", queueLength: 8 },
+                        { time: "12:30", queueLength: 7 },
+                        { time: "12:45", queueLength: 9 },
+                        { time: "13:00", queueLength: 8 },
+                        { time: "13:15", queueLength: 10 },
+                        { time: "13:30", queueLength: 9 },
+                        { time: "13:45", queueLength: 11 },
+                        { time: "14:00", queueLength: 10 },
+                        { time: "14:15", queueLength: 12 },
+                        { time: "14:30", queueLength: 11 },
+                        { time: "14:45", queueLength: 13 },
+                        { time: "15:00", queueLength: 12 },
+                        { time: "15:15", queueLength: 14 },
+                        { time: "15:30", queueLength: 13 },
+                        { time: "15:45", queueLength: 15 },
+                        { time: "16:00", queueLength: 14 },
+                        { time: "16:15", queueLength: 16 },
+                        { time: "16:30", queueLength: 15 },
+                        { time: "16:45", queueLength: 17 },
+                        { time: "17:00", queueLength: 16 },
+                        { time: "17:15", queueLength: 15 },
+                        { time: "17:30", queueLength: 14 },
+                        { time: "17:45", queueLength: 13 },
+                        { time: "18:00", queueLength: 12 },
+                        { time: "18:15", queueLength: 11 },
+                        { time: "18:30", queueLength: 10 },
+                        { time: "18:45", queueLength: 8 }
+                      ]}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="time" />
+                        <YAxis domain={[0, 18]} />
+                        <Tooltip />
+                        <Line type="monotone" dataKey="queueLength" stroke="#ef4444" strokeWidth={2} name="Queue Length" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </section>
+
+            {/* Operational Performance Trends (Medium to Long Term) */}
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-foreground">Operational Performance Trends (Medium to Long Term)</h2>
+                <div className="flex items-center space-x-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-[280px] justify-start text-left font-normal">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {employeeDateRange ? (
+                          `${format(employeeDateRange.from, "MMM dd")} - ${format(employeeDateRange.to, "MMM dd, yyyy")}`
+                        ) : (
+                          "Choose date"
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="range"
+                        defaultMonth={employeeDateRange?.from}
+                        selected={employeeDateRange}
+                        onSelect={(range) => setEmployeeDateRange(range as { from: Date; to: Date } | undefined)}
+                        numberOfMonths={2}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Staff Response Time & Queue Length</CardTitle>
+                    <CardDescription className="text-sm">Staff performance and queue management trends by hour over the specified period</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={[
+                          { hour: "9:00", queueLength: 2, responseTime: 1.8 },
+                          { hour: "10:00", queueLength: 4, responseTime: 2.0 },
+                          { hour: "11:00", queueLength: 6, responseTime: 2.2 },
+                          { hour: "12:00", queueLength: 8, responseTime: 2.4 },
+                          { hour: "13:00", queueLength: 10, responseTime: 2.6 },
+                          { hour: "14:00", queueLength: 12, responseTime: 2.8 },
+                          { hour: "15:00", queueLength: 14, responseTime: 3.0 },
+                          { hour: "16:00", queueLength: 16, responseTime: 3.2 },
+                          { hour: "17:00", queueLength: 18, responseTime: 3.4 },
+                          { hour: "18:00", queueLength: 15, responseTime: 3.0 },
+                          { hour: "19:00", queueLength: 12, responseTime: 2.6 },
+                          { hour: "20:00", queueLength: 8, responseTime: 2.2 },
+                          { hour: "21:00", queueLength: 4, responseTime: 1.8 }
+                        ]}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="hour" />
+                          <YAxis yAxisId="left" />
+                          <YAxis yAxisId="right" orientation="right" />
+                          <Tooltip />
+                          <Legend />
+                          <Bar yAxisId="left" dataKey="queueLength" fill="#3b82f6" name="Queue Length" />
+                          <Line yAxisId="right" type="monotone" dataKey="responseTime" stroke="#10b981" strokeWidth={2} name="Response Time (min)" />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Store Zones Heat Map</CardTitle>
+                    <CardDescription className="text-sm">Customer interaction percentage by zone</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Top 5 Zones Column */}
+                      <div>
+                        <div className="text-sm font-medium text-foreground mb-3">Top 5 Zones</div>
+                        <div className="space-y-3">
+                          {[
+                            { name: "Fruits", percentage: 24.5 },
+                            { name: "Essentials", percentage: 18.2 },
+                            { name: "Toys", percentage: 15.8 },
+                            { name: "Electronics", percentage: 12.3 },
+                            { name: "Clothing", percentage: 9.7 }
+                          ].map((zone, index) => (
+                            <div key={index} className="flex items-center justify-between">
+                              <span className="text-sm">{zone.name}</span>
+                              <div className="flex items-center space-x-2">
+                                <div className="w-20 bg-gray-200 rounded-full h-2">
+                                  <div 
+                                    className="h-2 rounded-full" 
+                                    style={{ 
+                                      width: `${(zone.percentage / 25) * 100}%`,
+                                      backgroundColor: zone.percentage >= 20 ? '#10b981' : 
+                                                     zone.percentage >= 15 ? '#3b82f6' : 
+                                                     zone.percentage >= 10 ? '#f59e0b' : 
+                                                     zone.percentage >= 5 ? '#ef4444' : '#6b7280'
+                                    }}
+                                  ></div>
+                                </div>
+                                <span className="text-lg font-bold text-foreground">{zone.percentage}%</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                </div>
+
+                      {/* Bottom 5 Zones Column */}
+                      <div>
+                        <div className="text-sm font-medium text-foreground mb-3">Bottom 5 Zones</div>
+                        <div className="space-y-3">
+                          {[
+                            { name: "Books", percentage: 2.1 },
+                            { name: "Home Decor", percentage: 1.8 },
+                            { name: "Sports", percentage: 1.5 },
+                            { name: "Jewelry", percentage: 1.2 },
+                            { name: "Automotive", percentage: 0.9 }
+                          ].map((zone, index) => (
+                            <div key={index} className="flex items-center justify-between">
+                              <span className="text-sm">{zone.name}</span>
+                              <div className="flex items-center space-x-2">
+                                <div className="w-20 bg-gray-200 rounded-full h-2">
+                                  <div 
+                                    className="h-2 rounded-full" 
+                                    style={{ 
+                                      width: `${(zone.percentage / 25) * 100}%`,
+                                      // All-red palette; darker for lower values
+                                      backgroundColor: zone.percentage >= 2 ? '#ef4444' : 
+                                                     zone.percentage >= 1.5 ? '#dc2626' : 
+                                                     zone.percentage >= 1 ? '#b91c1c' : '#7f1d1d'
+                                    }}
+                                  ></div>
+                                </div>
+                                <span className="text-lg font-bold text-foreground">{zone.percentage}%</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </section>
+
+            {/* Additional Metrics */}
+            <section>
+              <h2 className="text-xl font-semibold text-foreground mb-4">Additional Metrics</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Average Time at Cash Counter</CardTitle>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">2.3 min</div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-green-600">-0.2 min</span> from last week
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Avg. Staff Response Time</CardTitle>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">1.8 min</div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-green-600">-0.1 min</span> from last week
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Incidence of Staff Absence</CardTitle>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">3.2%</div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-red-600">+0.5%</span> from last month
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Peak Queue Length</CardTitle>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">18</div>
+                    <p className="text-xs text-muted-foreground">
+                      {(() => {
+                        const selectedDate = employeeDateRange?.from || new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+                        return selectedDate.toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric', 
+                          year: 'numeric' 
+                        }) + ' at 4:45 PM';
+                      })()}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </section>
+
+            {/* Store Open Close Adherence */}
+            <section>
+              <h2 className="text-xl font-semibold text-foreground mb-4">Store Open Close Adherence</h2>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Store Operating Hours</CardTitle>
+                  <CardDescription className="text-sm">Actual vs scheduled open/close times for the selected period</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2 font-medium">Date</th>
+                          <th className="text-left py-2 font-medium">Scheduled Open</th>
+                          <th className="text-left py-2 font-medium">Actual Open</th>
+                          <th className="text-left py-2 font-medium">Scheduled Close</th>
+                          <th className="text-left py-2 font-medium">Actual Close</th>
+                          <th className="text-left py-2 font-medium">Adherence</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          // Generate dates based on the selected date range
+                          const startDate = employeeDateRange?.from || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                          const endDate = employeeDateRange?.to || new Date();
+                          const dates = [];
+                          
+                          for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                            dates.push(new Date(d));
+                          }
+                          
+                          return dates.map((date, index) => {
+                            const dateStr = date.toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric', 
+                              year: 'numeric' 
+                            });
+                            
+                            // Sample data for each date
+                            const sampleData = [
+                              { scheduledOpen: "9:00 AM", actualOpen: "9:37 AM", scheduledClose: "9:00 PM", actualClose: "9:15 PM", adherence: "85%" },
+                              { scheduledOpen: "9:00 AM", actualOpen: "9:12 AM", scheduledClose: "9:00 PM", actualClose: "9:05 PM", adherence: "92%" },
+                              { scheduledOpen: "9:00 AM", actualOpen: "9:25 AM", scheduledClose: "9:00 PM", actualClose: "8:55 PM", adherence: "78%" },
+                              { scheduledOpen: "9:00 AM", actualOpen: "9:05 AM", scheduledClose: "9:00 PM", actualClose: "9:12 PM", adherence: "95%" },
+                              { scheduledOpen: "9:00 AM", actualOpen: "9:18 AM", scheduledClose: "9:00 PM", actualClose: "9:08 PM", adherence: "88%" }
+                            ];
+                            
+                            const data = sampleData[index % sampleData.length];
+                            
+                            // Calculate if times are within ±15 minutes for neutral color
+                            const isOpenOnTime = data.actualOpen === "9:00 AM" || 
+                              (data.actualOpen === "9:05 AM") || 
+                              (data.actualOpen === "9:12 AM") || 
+                              (data.actualOpen === "9:15 AM");
+                            const isCloseOnTime = data.actualClose === "9:00 PM" || 
+                              (data.actualClose === "9:05 PM") || 
+                              (data.actualClose === "9:08 PM") || 
+                              (data.actualClose === "9:12 PM") || 
+                              (data.actualClose === "9:15 PM");
+                            
+                            return (
+                              <tr key={index} className="border-b">
+                                <td className="py-2 font-medium">{dateStr}</td>
+                                <td className="py-2">{data.scheduledOpen}</td>
+                                <td className="py-2">
+                                  <span className={isOpenOnTime ? "text-green-600" : "text-muted-foreground"}>
+                                    {data.actualOpen}
+                                  </span>
+                                </td>
+                                <td className="py-2">{data.scheduledClose}</td>
+                                <td className="py-2">
+                                  <span className={isCloseOnTime ? "text-green-600" : "text-muted-foreground"}>
+                                    {data.actualClose}
+                                  </span>
+                                </td>
+                                <td className="py-2">
+                                  <span className={`font-medium ${
+                                    parseFloat(data.adherence) >= 90 ? "text-green-600" : 
+                                    parseFloat(data.adherence) >= 80 ? "text-orange-500" : "text-red-500"
+                                  }`}>
+                                    {data.adherence}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          });
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </section>
+
+            {/* Old Filters - Remove this section */}
+            <div className="flex flex-wrap items-center gap-4 mb-6" style={{display: 'none'}}>
               {/* State Filter */}
               <div className="flex items-center space-x-2">
                 <label className="text-sm font-medium text-foreground">State:</label>
@@ -2020,7 +2687,7 @@ export default function Index() {
                         <label htmlFor="select-all-states" className="text-sm font-medium font-semibold">
                           Select All
                         </label>
-                      </div>
+                </div>
                       {Object.keys(locationData).map((state) => (
                         <div key={state} className="flex items-center space-x-2">
                           <Checkbox
@@ -2031,9 +2698,9 @@ export default function Index() {
                           <label htmlFor={`state-${state}`} className="text-sm font-medium">
                             {state}
                           </label>
-                        </div>
+                </div>
                       ))}
-                    </div>
+              </div>
                   </PopoverContent>
                 </Popover>
               </div>
@@ -2065,7 +2732,7 @@ export default function Index() {
                         <label htmlFor="select-all-cities" className="text-sm font-medium font-semibold">
                           Select All
                         </label>
-                      </div>
+                </div>
                       {getAvailableCities().map((city) => (
                         <div key={city} className="flex items-center space-x-2">
                           <Checkbox
@@ -2076,9 +2743,9 @@ export default function Index() {
                           <label htmlFor={`city-${city}`} className="text-sm font-medium">
                             {city}
                           </label>
-                        </div>
+              </div>
                       ))}
-                    </div>
+              </div>
                   </PopoverContent>
                 </Popover>
                 </div>
@@ -2089,7 +2756,7 @@ export default function Index() {
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-[200px] justify-start text-left font-normal">
-                      {selectedStoreIds.length === 0 ? "All Stores" : `${selectedStoreIds.length} selected`}
+                      {selectedStoreIds.length === 0 ? "Select Stores" : `${selectedStoreIds.length} selected`}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[250px] p-2 max-h-[300px] overflow-y-auto">
@@ -2109,7 +2776,7 @@ export default function Index() {
                         <label htmlFor="select-all-stores" className="text-sm font-medium font-semibold">
                           Select All
                         </label>
-                      </div>
+              </div>
                       {getAvailableStores().map((store) => (
                         <div key={store} className="flex items-center space-x-2">
                           <Checkbox
@@ -2125,7 +2792,7 @@ export default function Index() {
                     </div>
                   </PopoverContent>
                 </Popover>
-              </div>
+                </div>
 
               {/* Date Range Filter */}
               <div className="flex items-center space-x-2">
@@ -2153,90 +2820,6 @@ export default function Index() {
                 </div>
               </div>
 
-            {/* Key Employee Metrics */}
-            <section>
-              <SectionHeader 
-                title="Key Employee Metrics" 
-                description="Essential staff performance indicators"
-                className="mb-6"
-              />
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <MetricCard
-                  title="Staff Deployed"
-                  value={employeeMetrics.staffDeployed.toString()}
-                  subtitle="Active staff on duty"
-                  trend="+2"
-                  trendDirection="up"
-                  icon="👥"
-                />
-                <MetricCard
-                  title="Staff Response Time"
-                  value={`${employeeMetrics.responseTime} min`}
-                  subtitle="Average customer assistance"
-                  trend="-0.2 min"
-                  trendDirection="down"
-                  icon="⚡"
-                />
-                <MetricCard
-                  title="Highest Count in The Queue at any point"
-                  value={employeeMetrics.maxQueueLength.toString()}
-                  subtitle="Peak queue length"
-                  trend="-3"
-                  trendDirection="down"
-                  icon="📊"
-                />
-                <MetricCard
-                  title="Staff Efficiency Score"
-                  value={`${employeeMetrics.efficiency}%`}
-                  subtitle="Overall performance"
-                  trend="+4%"
-                  trendDirection="up"
-                  icon="🎯"
-                />
-              </div>
-            </section>
-
-            {/* Staff Performance Analysis */}
-            <section>
-              <SectionHeader 
-                title="Staff Performance Analysis" 
-                description="Individual and team performance metrics"
-                className="mb-6"
-              />
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <ChartCard
-                  title="Individual Performance Score"
-                  description="Staff performance ratings and metrics"
-                >
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={staffEfficiencyData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="staff" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="satisfaction" fill="#3b82f6" name="Satisfaction Score" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartCard>
-
-                <ChartCard
-                  title="Staff Response Time Analysis"
-                  description="Average response times by department"
-                >
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={staffEfficiencyData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="staff" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="responseTime" fill="#10b981" name="Response Time (min)" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartCard>
-              </div>
-            </section>
           </TabsContent>
 
           {/* Insights & Recommendations Tab */}

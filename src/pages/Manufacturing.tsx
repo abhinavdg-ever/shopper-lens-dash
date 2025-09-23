@@ -59,30 +59,28 @@ const Manufacturing = () => {
       <header className="border-b bg-card">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => navigate('/')}
-                className="flex items-center space-x-2"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Back</span>
-              </Button>
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-xl">A</span>
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold text-foreground">
-                    AlgoSights - Manufacturing
-                  </h1>
-                  <p className="text-muted-foreground mt-1">
-                    AI-Powered Video Feed Analysis Platform
-                  </p>
-                </div>
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-xl">A</span>
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-foreground">
+                  Algosights - Manufacturing
+                </h1>
+                <p className="text-muted-foreground mt-1">
+                  AI-Powered Video Feed Analysis Platform
+                </p>
               </div>
             </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigate('/')}
+              className="flex items-center space-x-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back</span>
+            </Button>
           </div>
         </div>
       </header>
