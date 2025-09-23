@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ChartCard } from "@/components/dashboard/ChartCard";
 import { SectionHeader } from "@/components/dashboard/SectionHeader";
@@ -8,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CalendarIcon, ArrowLeft, Crown } from "lucide-react";
 import { format } from "date-fns";
 import { 
   BarChart, 
@@ -120,6 +122,7 @@ const customerTypeData = [
 ];
 
 export default function Index() {
+  const navigate = useNavigate();
   const [date, setDate] = React.useState<Date | undefined>(new Date());
   const [dateRange, setDateRange] = React.useState<{ from: Date | undefined; to: Date | undefined }>({
     from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
@@ -174,6 +177,136 @@ export default function Index() {
   const [isLoadingTrackingData, setIsLoadingTrackingData] = React.useState(false);
   const [currentFrame, setCurrentFrame] = React.useState(0);
   const [videoFPS, setVideoFPS] = React.useState<number>(13.09); // Default fallback
+  
+  // Store Selection Mode Toggle
+  const [isGroupMode, setIsGroupMode] = React.useState(false);
+  
+  // Hierarchical Multi-Select Filter States (for Group Stores mode)
+  const [selectedStates, setSelectedStates] = React.useState<string[]>([]);
+  const [selectedCities, setSelectedCities] = React.useState<string[]>([]);
+  const [selectedStoreIds, setSelectedStoreIds] = React.useState<string[]>([]);
+  
+  // Simple Store Selection (for Individual Store mode)
+  const [selectedIndividualStore, setSelectedIndividualStore] = React.useState('all');
+  
+  // Simple store list for individual selection
+  const individualStores = [
+    { value: 'all', label: 'All Stores' },
+    { value: 'store-3301', label: 'Store #3301 - Downtown' },
+    { value: 'store-3302', label: 'Store #3302 - Mall Location' },
+    { value: 'store-3303', label: 'Store #3303 - Suburban' },
+    { value: 'store-3304', label: 'Store #3304 - Airport' },
+    { value: 'store-3305', label: 'Store #3305 - Outlet' },
+    { value: 'store-3306', label: 'Store #3306 - University' },
+    { value: 'store-3307', label: 'Store #3307 - Plaza' },
+    { value: 'store-3401', label: 'Store #3401 - Hollywood' },
+    { value: 'store-3402', label: 'Store #3402 - Beverly Hills' },
+    { value: 'store-3403', label: 'Store #3403 - Santa Monica' },
+    { value: 'store-3404', label: 'Store #3404 - Union Square' },
+    { value: 'store-3405', label: 'Store #3405 - Fisherman\'s Wharf' },
+    { value: 'store-3501', label: 'Store #3501 - Galleria' },
+    { value: 'store-3502', label: 'Store #3502 - Downtown' },
+    { value: 'store-3503', label: 'Store #3503 - Uptown' },
+    { value: 'store-3504', label: 'Store #3504 - Plano' },
+    { value: 'store-3601', label: 'Store #3601 - South Beach' },
+    { value: 'store-3602', label: 'Store #3602 - Brickell' },
+    { value: 'store-3603', label: 'Store #3603 - Disney Springs' },
+    { value: 'store-3604', label: 'Store #3604 - Universal' }
+  ];
+  
+  // Hierarchical data structure
+  const locationData = {
+    'New York': {
+      'New York City': ['Store #3301 - Downtown', 'Store #3302 - Mall Location', 'Store #3303 - Suburban'],
+      'Buffalo': ['Store #3304 - Airport', 'Store #3305 - Outlet'],
+      'Rochester': ['Store #3306 - University', 'Store #3307 - Plaza']
+    },
+    'California': {
+      'Los Angeles': ['Store #3401 - Hollywood', 'Store #3402 - Beverly Hills', 'Store #3403 - Santa Monica'],
+      'San Francisco': ['Store #3404 - Union Square', 'Store #3405 - Fisherman\'s Wharf'],
+      'San Diego': ['Store #3406 - Gaslamp', 'Store #3407 - La Jolla']
+    },
+    'Texas': {
+      'Houston': ['Store #3501 - Galleria', 'Store #3502 - Downtown'],
+      'Dallas': ['Store #3503 - Uptown', 'Store #3504 - Plano'],
+      'Austin': ['Store #3505 - South Austin', 'Store #3506 - North Austin']
+    },
+    'Florida': {
+      'Miami': ['Store #3601 - South Beach', 'Store #3602 - Brickell'],
+      'Orlando': ['Store #3603 - Disney Springs', 'Store #3604 - Universal'],
+      'Tampa': ['Store #3605 - Ybor City', 'Store #3606 - Westshore']
+    }
+  };
+  
+  // Helper functions for hierarchical selection
+  const getAvailableCities = () => {
+    if (selectedStates.length === 0) {
+      return Object.keys(locationData).flatMap(state => Object.keys(locationData[state as keyof typeof locationData]));
+    }
+    return selectedStates.flatMap(state => Object.keys(locationData[state as keyof typeof locationData]));
+  };
+  
+  const getAvailableStores = () => {
+    if (selectedStates.length === 0 && selectedCities.length === 0) {
+      return Object.values(locationData).flatMap(cities => Object.values(cities)).flat();
+    }
+    
+    if (selectedCities.length === 0) {
+      // If no cities selected but states are selected, get all stores from selected states
+      return selectedStates.flatMap(state => {
+        const stateData = locationData[state as keyof typeof locationData];
+        return Object.values(stateData).flat();
+      });
+    }
+    
+    // If cities are selected, get stores from those cities
+    return selectedCities.flatMap(city => {
+      return selectedStates.flatMap(state => {
+        const stateData = locationData[state as keyof typeof locationData];
+        const cityData = stateData[city as keyof typeof stateData];
+        return Array.isArray(cityData) ? cityData : [];
+      });
+    });
+  };
+  
+  const handleStateChange = (state: string, checked: boolean) => {
+    if (checked) {
+      setSelectedStates([...selectedStates, state]);
+    } else {
+      const newStates = selectedStates.filter(s => s !== state);
+      setSelectedStates(newStates);
+      // Clear cities and stores that are no longer available
+      const availableCities = newStates.flatMap(s => Object.keys(locationData[s as keyof typeof locationData]));
+      setSelectedCities(selectedCities.filter(city => availableCities.includes(city)));
+      setSelectedStoreIds([]);
+    }
+  };
+  
+  const handleCityChange = (city: string, checked: boolean) => {
+    if (checked) {
+      setSelectedCities([...selectedCities, city]);
+    } else {
+      const newCities = selectedCities.filter(c => c !== city);
+      setSelectedCities(newCities);
+      // Clear stores that are no longer available based on selected states and cities
+      const availableStores = newCities.flatMap(city => {
+        return selectedStates.flatMap(state => {
+          const stateData = locationData[state as keyof typeof locationData];
+          const cityData = stateData[city as keyof typeof stateData];
+          return Array.isArray(cityData) ? cityData : [];
+        });
+      });
+      setSelectedStoreIds(selectedStoreIds.filter(store => availableStores.includes(store)));
+    }
+  };
+  
+  const handleStoreChange = (store: string, checked: boolean) => {
+    if (checked) {
+      setSelectedStoreIds([...selectedStoreIds, store]);
+    } else {
+      setSelectedStoreIds(selectedStoreIds.filter(s => s !== store));
+    }
+  };
   
   // Function to detect video FPS automatically
   const detectVideoFPS = (video: HTMLVideoElement): Promise<number> => {
@@ -872,13 +1005,29 @@ export default function Index() {
       <header className="border-b bg-card">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex items-center space-x-4">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate('/')}
+                className="flex items-center space-x-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Back</span>
+              </Button>
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-xl">A</span>
+                </div>
+                <div>
           <h1 className="text-3xl font-bold text-foreground">
-                AlgoSights
+                    AlgoSights
           </h1>
           <p className="text-muted-foreground mt-1">
-                Real-time insights and performance metrics from video feed analysis
+                    AI-Powered Video Feed Analysis Platform
           </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -912,12 +1061,15 @@ export default function Index() {
           </div>
         )}
 
-        <Tabs defaultValue="video" className="space-y-8">
+        <Tabs defaultValue="customer" className="space-y-8">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="video">Video Feed</TabsTrigger>
             <TabsTrigger value="customer">Customer Analytics</TabsTrigger>
-            <TabsTrigger value="employee">Employee & Operations Excellence</TabsTrigger>
-            <TabsTrigger value="insights">Insights & Recommendations</TabsTrigger>
+            <TabsTrigger value="employee">Employee & Operational Analysis</TabsTrigger>
+            <TabsTrigger value="insights">Store-Zone Insights</TabsTrigger>
+            <TabsTrigger value="video" className="flex items-center space-x-2">
+              <span>Video Feed</span>
+              <Crown className="w-4 h-4 text-yellow-500" />
+            </TabsTrigger>
           </TabsList>
 
           {/* Video Feed Tab */}
@@ -927,6 +1079,27 @@ export default function Index() {
               description="Real-time video monitoring with AI-powered people tracking and analytics"
                 className="mb-6"
               />
+              
+              {/* Premium Notice */}
+              <div className="bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 rounded-lg p-6 mb-8">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-lg">★</span>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-orange-800">Premium Feature</h3>
+                    <p className="text-orange-700 text-sm">Video Feed Analysis is available only with Premium subscription. Upgrade to access real-time video monitoring and AI-powered analytics.</p>
+                  </div>
+                </div>
+                <div className="mt-4 flex space-x-3">
+                  <Button className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white">
+                    Upgrade to Premium
+                  </Button>
+                  <Button variant="outline" className="border-orange-300 text-orange-700 hover:bg-orange-50">
+                    Learn More
+                  </Button>
+                </div>
+              </div>
             
             {/* Main Video Interface */}
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
@@ -1160,7 +1333,7 @@ export default function Index() {
                 </label>
               </div>
                 </div>
-
+                
                     <div>
                       <label className="text-sm font-medium text-foreground mb-2 block">Proximity Detector <span className="text-xs text-muted-foreground">(Coming Soon)</span></label>
                       <div className="space-y-2 opacity-50">
@@ -1449,8 +1622,145 @@ export default function Index() {
                 className="mb-6"
               />
 
-            {/* Date Range Filter */}
-            <div className="flex items-center space-x-4 mb-6">
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-4 mb-6">
+              {/* State Filter */}
+              <div className="flex items-center space-x-2">
+                <label className="text-sm font-medium text-foreground">State:</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-[200px] justify-start text-left font-normal">
+                      {selectedStates.length === 0 ? "All States" : `${selectedStates.length} selected`}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[200px] p-2">
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2 border-b pb-2">
+                        <Checkbox
+                          id="select-all-states"
+                          checked={selectedStates.length === Object.keys(locationData).length}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedStates(Object.keys(locationData));
+                            } else {
+                              setSelectedStates([]);
+                              setSelectedCities([]);
+                              setSelectedStoreIds([]);
+                            }
+                          }}
+                        />
+                        <label htmlFor="select-all-states" className="text-sm font-medium font-semibold">
+                          Select All
+                        </label>
+                      </div>
+                      {Object.keys(locationData).map((state) => (
+                        <div key={state} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`state-${state}`}
+                            checked={selectedStates.includes(state)}
+                            onCheckedChange={(checked) => handleStateChange(state, checked as boolean)}
+                          />
+                          <label htmlFor={`state-${state}`} className="text-sm font-medium">
+                            {state}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* City Filter */}
+              <div className="flex items-center space-x-2">
+                <label className="text-sm font-medium text-foreground">City:</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-[200px] justify-start text-left font-normal">
+                      {selectedCities.length === 0 ? "All Cities" : `${selectedCities.length} selected`}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[200px] p-2">
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2 border-b pb-2">
+                        <Checkbox
+                          id="select-all-cities"
+                          checked={selectedCities.length === getAvailableCities().length && getAvailableCities().length > 0}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedCities(getAvailableCities());
+                            } else {
+                              setSelectedCities([]);
+                              setSelectedStoreIds([]);
+                            }
+                          }}
+                        />
+                        <label htmlFor="select-all-cities" className="text-sm font-medium font-semibold">
+                          Select All
+                        </label>
+                      </div>
+                      {getAvailableCities().map((city) => (
+                        <div key={city} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`city-${city}`}
+                            checked={selectedCities.includes(city)}
+                            onCheckedChange={(checked) => handleCityChange(city, checked as boolean)}
+                          />
+                          <label htmlFor={`city-${city}`} className="text-sm font-medium">
+                            {city}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                </div>
+
+              {/* Store ID Filter */}
+              <div className="flex items-center space-x-2">
+                <label className="text-sm font-medium text-foreground">Store ID:</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-[200px] justify-start text-left font-normal">
+                      {selectedStoreIds.length === 0 ? "All Stores" : `${selectedStoreIds.length} selected`}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[250px] p-2 max-h-[300px] overflow-y-auto">
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2 border-b pb-2">
+                        <Checkbox
+                          id="select-all-stores"
+                          checked={selectedStoreIds.length === getAvailableStores().length && getAvailableStores().length > 0}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedStoreIds(getAvailableStores());
+                            } else {
+                              setSelectedStoreIds([]);
+                            }
+                          }}
+                        />
+                        <label htmlFor="select-all-stores" className="text-sm font-medium font-semibold">
+                          Select All
+                        </label>
+                      </div>
+                      {getAvailableStores().map((store) => (
+                        <div key={store} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`store-${store}`}
+                            checked={selectedStoreIds.includes(store)}
+                            onCheckedChange={(checked) => handleStoreChange(store, checked as boolean)}
+                          />
+                          <label htmlFor={`store-${store}`} className="text-sm font-medium">
+                            {store}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Date Range Filter */}
+              <div className="flex items-center space-x-2">
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-[280px] justify-start text-left font-normal">
@@ -1472,6 +1782,7 @@ export default function Index() {
                   />
                 </PopoverContent>
               </Popover>
+                </div>
               </div>
 
             {/* Key Customer Metrics */}
@@ -1483,15 +1794,15 @@ export default function Index() {
               />
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                  <MetricCard
+                <MetricCard
                   title="Customer Satisfaction"
                   value={`${satisfactionIndex}%`}
                   subtitle="During peak hours Below target during rush"
                   trend="+2.3%"
                   trendDirection="up"
                   icon="😊"
-                  />
-                  <MetricCard
+                />
+                <MetricCard
                   title="Total Footfall"
                   value={customerMetrics.footfall.toLocaleString()}
                   subtitle="Today's visitors"
@@ -1499,7 +1810,7 @@ export default function Index() {
                   trendDirection="up"
                   icon="👥"
                 />
-                  <MetricCard
+                <MetricCard
                   title="Conversion Rate"
                   value={`${customerMetrics.conversion}%`}
                   subtitle="Entry to purchase"
@@ -1667,20 +1978,157 @@ export default function Index() {
                     </PieChart>
                   </ResponsiveContainer>
                 </ChartCard>
-                </div>
+              </div>
             </section>
           </TabsContent>
 
           {/* Employee & Operations Excellence Tab */}
           <TabsContent value="employee" className="space-y-8">
-            <SectionHeader 
-              title="Employee & Operations Excellence" 
+              <SectionHeader 
+              title="Employee & Operational Analysis" 
               description="Staff performance and operational efficiency metrics"
-              className="mb-6"
-            />
+                className="mb-6"
+              />
 
-            {/* Date Range Filter */}
-            <div className="flex items-center space-x-4 mb-6">
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-4 mb-6">
+              {/* State Filter */}
+              <div className="flex items-center space-x-2">
+                <label className="text-sm font-medium text-foreground">State:</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-[200px] justify-start text-left font-normal">
+                      {selectedStates.length === 0 ? "All States" : `${selectedStates.length} selected`}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[200px] p-2">
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2 border-b pb-2">
+                        <Checkbox
+                          id="select-all-states"
+                          checked={selectedStates.length === Object.keys(locationData).length}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedStates(Object.keys(locationData));
+                            } else {
+                              setSelectedStates([]);
+                              setSelectedCities([]);
+                              setSelectedStoreIds([]);
+                            }
+                          }}
+                        />
+                        <label htmlFor="select-all-states" className="text-sm font-medium font-semibold">
+                          Select All
+                        </label>
+                      </div>
+                      {Object.keys(locationData).map((state) => (
+                        <div key={state} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`state-${state}`}
+                            checked={selectedStates.includes(state)}
+                            onCheckedChange={(checked) => handleStateChange(state, checked as boolean)}
+                          />
+                          <label htmlFor={`state-${state}`} className="text-sm font-medium">
+                            {state}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* City Filter */}
+              <div className="flex items-center space-x-2">
+                <label className="text-sm font-medium text-foreground">City:</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-[200px] justify-start text-left font-normal">
+                      {selectedCities.length === 0 ? "All Cities" : `${selectedCities.length} selected`}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[200px] p-2">
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2 border-b pb-2">
+                        <Checkbox
+                          id="select-all-cities"
+                          checked={selectedCities.length === getAvailableCities().length && getAvailableCities().length > 0}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedCities(getAvailableCities());
+                            } else {
+                              setSelectedCities([]);
+                              setSelectedStoreIds([]);
+                            }
+                          }}
+                        />
+                        <label htmlFor="select-all-cities" className="text-sm font-medium font-semibold">
+                          Select All
+                        </label>
+                      </div>
+                      {getAvailableCities().map((city) => (
+                        <div key={city} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`city-${city}`}
+                            checked={selectedCities.includes(city)}
+                            onCheckedChange={(checked) => handleCityChange(city, checked as boolean)}
+                          />
+                          <label htmlFor={`city-${city}`} className="text-sm font-medium">
+                            {city}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                </div>
+
+              {/* Store ID Filter */}
+              <div className="flex items-center space-x-2">
+                <label className="text-sm font-medium text-foreground">Store ID:</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-[200px] justify-start text-left font-normal">
+                      {selectedStoreIds.length === 0 ? "All Stores" : `${selectedStoreIds.length} selected`}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[250px] p-2 max-h-[300px] overflow-y-auto">
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2 border-b pb-2">
+                        <Checkbox
+                          id="select-all-stores"
+                          checked={selectedStoreIds.length === getAvailableStores().length && getAvailableStores().length > 0}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedStoreIds(getAvailableStores());
+                            } else {
+                              setSelectedStoreIds([]);
+                            }
+                          }}
+                        />
+                        <label htmlFor="select-all-stores" className="text-sm font-medium font-semibold">
+                          Select All
+                        </label>
+                      </div>
+                      {getAvailableStores().map((store) => (
+                        <div key={store} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`store-${store}`}
+                            checked={selectedStoreIds.includes(store)}
+                            onCheckedChange={(checked) => handleStoreChange(store, checked as boolean)}
+                          />
+                          <label htmlFor={`store-${store}`} className="text-sm font-medium">
+                            {store}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Date Range Filter */}
+              <div className="flex items-center space-x-2">
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-[280px] justify-start text-left font-normal">
@@ -1703,6 +2151,7 @@ export default function Index() {
                 </PopoverContent>
               </Popover>
                 </div>
+              </div>
 
             {/* Key Employee Metrics */}
             <section>
