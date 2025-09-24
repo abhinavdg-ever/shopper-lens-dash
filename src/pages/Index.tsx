@@ -668,8 +668,8 @@ export default function Index() {
       if (trackingOptions.viewStoreZones && trackingData.zones) {
         trackingData.zones.forEach((zone: any) => {
           if (zone.polygon && zone.polygon.length > 0) {
-            // Draw zone fill with light grayish color
-            ctx.fillStyle = 'rgba(156, 163, 175, 0.3)';
+            // Draw zone fill with light red color
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
             ctx.beginPath();
             zone.polygon.forEach((point: any, index: number) => {
               const x = point[0] * (canvas.width / (video.videoWidth || 1920));
@@ -911,8 +911,8 @@ export default function Index() {
           if (trackingOptions.viewStoreZones && trackingData.zones) {
             trackingData.zones.forEach((zone: any) => {
               if (zone.polygon && zone.polygon.length > 0) {
-                // Draw zone fill with darker color
-                ctx.fillStyle = 'rgba(255, 107, 107, 0.3)';
+                // Draw zone fill with light red color
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
                 ctx.beginPath();
                 zone.polygon.forEach((point: any, index: number) => {
                   const x = point[0] * (canvas.width / (video.videoWidth || 1920));
@@ -1103,6 +1103,11 @@ export default function Index() {
             </button>
           </div>
         )}
+
+        {/* Retail - Store Level Insights Header */}
+        <div className="mb-6 bg-gradient-to-r from-orange-50 to-orange-100 border-l-4 border-orange-500 p-4 rounded-r-lg">
+          <h1 className="text-2xl font-semibold text-slate-700">Retail - Store Level Insights</h1>
+        </div>
 
         <Tabs defaultValue="customer" className="space-y-8">
           <TabsList className="grid w-full grid-cols-3">
@@ -2355,6 +2360,7 @@ export default function Index() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-foreground">Operational Performance Trends (Medium to Long Term)</h2>
                 <div className="flex items-center space-x-2">
+                  <label className="text-sm font-medium text-foreground">Choose Date:</label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button variant="outline" className="w-[280px] justify-start text-left font-normal">
@@ -2482,7 +2488,7 @@ export default function Index() {
                                                      zone.percentage >= 1 ? '#b91c1c' : '#7f1d1d'
                                     }}
                                   ></div>
-                                </div>
+                </div>
                                 <span className="text-lg font-bold text-foreground">{zone.percentage}%</span>
                               </div>
                             </div>
@@ -2497,8 +2503,6 @@ export default function Index() {
 
             {/* Additional Metrics */}
             <section>
-              <h2 className="text-xl font-semibold text-foreground mb-4">Additional Metrics</h2>
-              
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
