@@ -78,6 +78,11 @@ const Manufacturing = () => {
   // Last synced time state for dynamic counter
   const [lastSyncedTime, setLastSyncedTime] = useState('18:45:00');
 
+  // Video switching state - show processed by default
+  const [isProcessedVideo, setIsProcessedVideo] = useState(true);
+  const [videoCurrentTime, setVideoCurrentTime] = useState(0);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(true);
+
   // Effect to update last synced time every second
   useEffect(() => {
     const interval = setInterval(() => {
@@ -108,6 +113,35 @@ const Manufacturing = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Effect to sync video time and state
+  useEffect(() => {
+    const video = document.getElementById('main-video') as HTMLVideoElement;
+    if (!video) return;
+
+    const handleTimeUpdate = () => {
+      setVideoCurrentTime(video.currentTime);
+    };
+
+    const handlePlay = () => {
+      setIsVideoPlaying(true);
+    };
+
+    const handlePause = () => {
+      setIsVideoPlaying(false);
+    };
+
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('pause', handlePause);
+
+    return () => {
+      video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('play', handlePlay);
+      video.removeEventListener('pause', handlePause);
+    };
+  }, [isProcessedVideo]);
+
 
   // Location options
   const locationOptions = [
@@ -251,7 +285,7 @@ const Manufacturing = () => {
               <Factory className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">52 units/hr</div>
+              <div className="text-2xl font-bold">1,547 units/hr</div>
               <p className="text-xs text-muted-foreground">
                 <span className="text-green-600">+5.2%</span> from last hour
               </p>
@@ -562,6 +596,26 @@ const Manufacturing = () => {
                       loop
                       muted
                       playsInline
+                      src={isProcessedVideo ? "/Processed Video - Manufacturing.mp4" : "/Original Video - Manufacturing.mp4"}
+                      onLoadStart={() => {
+                        console.log('Video load started:', isProcessedVideo ? 'Processed' : 'Original');
+                        console.log('Video src:', isProcessedVideo ? "/Processed Video - Manufacturing.mp4" : "/Original Video - Manufacturing.mp4");
+                      }}
+                      onLoadedData={() => {
+                        console.log('Video data loaded:', isProcessedVideo ? 'Processed' : 'Original');
+                        const video = document.getElementById('main-video') as HTMLVideoElement;
+                        if (video) {
+                          video.currentTime = videoCurrentTime;
+                          if (isVideoPlaying) {
+                            video.play().catch(console.log);
+                          }
+                        }
+                      }}
+                      onError={(e) => {
+                        console.error('Video error:', e);
+                        console.error('Video src:', isProcessedVideo ? "/Processed Video - Manufacturing.mp4" : "/Original Video - Manufacturing.mp4");
+                        console.error('Video error details:', e.currentTarget.error);
+                      }}
                       onEnded={() => {
                         const video = document.getElementById('main-video') as HTMLVideoElement;
                         if (video) {
@@ -570,40 +624,40 @@ const Manufacturing = () => {
                         }
                       }}
                     >
-                      <source src="/Original Video.mp4" type="video/mp4" />
                       Your browser does not support the video tag.
                     </video>
                     
-                    {/* Tracking Overlay Canvas - Always show overlays */}
-                    <canvas
-                      id="tracking-canvas"
-                      className="absolute top-0 left-0 w-full h-full pointer-events-none"
-                      style={{ zIndex: 10 }}
-                    ></canvas>
                     
                     {/* Video Type Indicator */}
                     <div className="absolute top-4 left-4 bg-black/70 text-white text-sm px-3 py-1 rounded-lg font-semibold">
-                      Original Video
+                      {isProcessedVideo ? "Processed Video" : "Original Video"}
                     </div>
 
                     {/* Switch Video Button */}
                     <button 
                       className="absolute top-4 right-4 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded-lg flex items-center shadow-lg transition-colors"
                       onClick={() => {
-                        const mainVideo = document.getElementById('main-video') as HTMLVideoElement;
-                        const currentTime = mainVideo ? mainVideo.currentTime : 0;
+                        const video = document.getElementById('main-video') as HTMLVideoElement;
+                        const currentTime = video ? video.currentTime : 0;
+                        const wasPlaying = video ? !video.paused : false;
                         
-                        // Sync the new main video to the current time after switching
+                        setIsProcessedVideo(!isProcessedVideo);
+                        
+                        // Force video reload after state change
                         setTimeout(() => {
-                          const newMainVideo = document.getElementById('main-video') as HTMLVideoElement;
-                          if (newMainVideo) {
-                            newMainVideo.currentTime = currentTime;
+                          const newVideo = document.getElementById('main-video') as HTMLVideoElement;
+                          if (newVideo) {
+                            newVideo.load(); // Force reload
+                            newVideo.currentTime = currentTime;
+                            if (wasPlaying) {
+                              newVideo.play().catch(console.log);
+                            }
                           }
-                        }, 200);
+                        }, 100);
                       }}
-                      title="Switch to Processed Video"
+                      title={`Switch to ${isProcessedVideo ? 'Original' : 'Processed'} Video`}
                     >
-                      Switch to Processed
+                      Switch to {isProcessedVideo ? 'Original' : 'Processed'}
                     </button>
                   </div>
                 </div>
@@ -641,7 +695,7 @@ const Manufacturing = () => {
                           ctx.fillStyle = '#ffffff';
                           ctx.font = '14px Arial';
                           ctx.fillText(`Captured: ${new Date().toLocaleString()}`, 20, canvas.height - 35);
-                          ctx.fillText(`Mode: Original`, 20, canvas.height - 15);
+                          ctx.fillText(`Mode: ${isProcessedVideo ? 'Processed' : 'Original'}`, 20, canvas.height - 15);
                           
                           // Download the image
                           const link = document.createElement('a');
@@ -660,18 +714,26 @@ const Manufacturing = () => {
                   </button>
                   
                   <button 
-                    className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
+                    className={`${isVideoPlaying ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600'} text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2`}
                     onClick={() => {
                       const mainVideo = document.getElementById('main-video') as HTMLVideoElement;
                       if (mainVideo) {
-                        mainVideo.pause();
+                        if (isVideoPlaying) {
+                          mainVideo.pause();
+                        } else {
+                          mainVideo.play().catch(console.log);
+                        }
                       }
                     }}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      {isVideoPlaying ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      )}
                     </svg>
-                    <span>Pause Tracking</span>
+                    <span>{isVideoPlaying ? 'Pause Tracking' : 'Resume Tracking'}</span>
                   </button>
                   
                   <button 
@@ -710,7 +772,7 @@ const Manufacturing = () => {
                     </span>
                   </div>
                   <div className="text-3xl font-bold text-foreground mb-1">
-                    {Math.floor(Math.random() * 6) + 50} units/hr
+                    {Math.floor(Math.random() * 100) + 1500} units/hr
                   </div>
                   <div className="text-sm text-muted-foreground mb-2">
                     Current production output
