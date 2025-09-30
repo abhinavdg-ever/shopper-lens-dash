@@ -108,6 +108,9 @@ const Education = () => {
   const [trackingData, setTrackingData] = useState<any>(null);
   const [isLoadingTrackingData, setIsLoadingTrackingData] = useState(false);
   const [videoFPS, setVideoFPS] = useState<number>(14.79);
+  const [showIncidentWarning, setShowIncidentWarning] = useState(false);
+  const [incidentTimestamp, setIncidentTimestamp] = useState<string>('');
+  const [safetyStatus, setSafetyStatus] = useState<'Safe' | 'Warning'>('Safe');
   
   // Update FPS when video source changes
   React.useEffect(() => {
@@ -306,6 +309,30 @@ const Education = () => {
           drawPerson(teacher, true);
         });
       }
+
+      // Check for potential incidents in the current frame
+      let hasIncident = false;
+      if (frameData.students) {
+        frameData.students.forEach((student: any) => {
+          if (student.potential_incident === true) {
+            hasIncident = true;
+          }
+        });
+      }
+
+      // If incident detected, show warning
+      if (hasIncident && !showIncidentWarning) {
+        const video = document.getElementById('education-video') as HTMLVideoElement;
+        const timestamp = new Date().toLocaleTimeString() + ' (Frame: ' + currentFrameNumber + ')';
+        setIncidentTimestamp(timestamp);
+        setSafetyStatus('Warning');
+        setShowIncidentWarning(true);
+        
+        // Hide warning after 5 seconds
+        setTimeout(() => {
+          setShowIncidentWarning(false);
+        }, 5000);
+      }
     };
 
     // Update overlay every frame (only when not paused)
@@ -324,7 +351,7 @@ const Education = () => {
       // When paused, draw one final frame and keep it
       drawTrackingOverlay();
     }
-  }, [trackingData, trackingOptions, videoFPS, isProcessedVideoMain, isTrackingPaused]);
+  }, [trackingData, trackingOptions, videoFPS, isProcessedVideoMain, isTrackingPaused, showIncidentWarning]);
 
   // Campus options
   const campusOptions = [
@@ -1066,6 +1093,18 @@ const Education = () => {
                   
                   {/* Video Player */}
                   <div className="relative aspect-video bg-gradient-to-br from-slate-900 to-slate-800 rounded-lg overflow-hidden border border-border/30">
+                    {/* Incident Warning Flash */}
+                    {showIncidentWarning && (
+                      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 animate-pulse">
+                        <div className="bg-red-600 text-white px-6 py-3 rounded-lg shadow-2xl border-2 border-red-400 flex items-center space-x-3">
+                          <AlertTriangle className="w-6 h-6" />
+                          <div>
+                            <div className="font-bold text-lg">⚠️ Potential Incident Detected</div>
+                            <div className="text-sm opacity-90">{incidentTimestamp}</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <video
                       id="education-video"
                       key={selectedVideoSource}
@@ -1285,8 +1324,20 @@ const Education = () => {
                     <CardTitle className="text-sm font-medium text-muted-foreground">Safety Status</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold text-green-600">Normal</div>
-                    <p className="text-sm text-muted-foreground mt-1">No incidents detected</p>
+                    {safetyStatus === 'Warning' ? (
+                      <>
+                        <div className="text-3xl font-bold text-red-600 flex items-center space-x-2">
+                          <AlertTriangle className="w-8 h-8" />
+                          <span>Warning</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">Incident at {incidentTimestamp}</p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-3xl font-bold text-green-600">Normal</div>
+                        <p className="text-sm text-muted-foreground mt-1">No incidents detected</p>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
               </div>
