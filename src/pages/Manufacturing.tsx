@@ -351,15 +351,21 @@ const Manufacturing = () => {
 
         <Tabs defaultValue="production" className="space-y-8">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="production">Production & Operations Analysis</TabsTrigger>
+            <TabsTrigger value="production">Production & Operations Analytics</TabsTrigger>
             <TabsTrigger value="video" className="flex items-center space-x-2">
               <span>Video Feed</span>
               <Crown className="w-4 h-4 text-yellow-500" />
             </TabsTrigger>
           </TabsList>
 
-          {/* Production & Operations Analysis Tab */}
+          {/* Production & Operations Analytics Tab */}
           <TabsContent value="production" className="space-y-8">
+            {/* Section Header */}
+            <SectionHeader 
+              title="Production & Operations Analytics" 
+              description="Comprehensive overview into production metrics, quality control, and operational efficiency monitoring"
+            />
+
             {/* Location Selection */}
             <div className="flex flex-wrap items-center gap-4 mb-6">
               <div className="flex items-center space-x-2">

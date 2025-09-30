@@ -91,6 +91,8 @@ const Landing = () => {
       navigate('/retail');
     } else if (industryId === 'manufacturing') {
       navigate('/manufacturing');
+    } else if (industryId === 'education') {
+      navigate('/education');
     }
   };
 
