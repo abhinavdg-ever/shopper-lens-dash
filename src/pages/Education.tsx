@@ -115,6 +115,8 @@ const Education = () => {
   const [showIncidentWarning, setShowIncidentWarning] = useState(false);
   const [incidentTimestamp, setIncidentTimestamp] = useState<string>('');
   const [safetyStatus, setSafetyStatus] = useState<'Safe' | 'Warning'>('Safe');
+  const [detectedIncidents, setDetectedIncidents] = useState<Array<{type: string, time: string}>>([]);
+  const [showIncidentDetailsModal, setShowIncidentDetailsModal] = useState(false);
   
   // Update clock every second starting from 14:30 (pause when tracking is paused)
   React.useEffect(() => {
@@ -341,10 +343,17 @@ const Education = () => {
 
       // If incident detected, show warning
       if (hasIncident && !showIncidentWarning) {
-        const timestamp = new Date().toLocaleTimeString();
-        setIncidentTimestamp(timestamp);
+        // Format time as HH:MM (24-hour format)
+        const hours = currentTime.getHours();
+        const minutes = currentTime.getMinutes();
+        const timeString = `${hours}:${minutes.toString().padStart(2, '0')}`;
+        
+        setIncidentTimestamp(timeString);
         setSafetyStatus('Warning');
         setShowIncidentWarning(true);
+        
+        // Add incident to the list
+        setDetectedIncidents(prev => [...prev, { type: 'Disciplinary Action', time: timeString }]);
         
         // Hide warning after 5 seconds
         setTimeout(() => {
@@ -369,7 +378,7 @@ const Education = () => {
       // When paused, draw one final frame and keep it
       drawTrackingOverlay();
     }
-  }, [trackingData, trackingOptions, videoFPS, isProcessedVideoMain, isTrackingPaused, showIncidentWarning]);
+  }, [trackingData, trackingOptions, videoFPS, isProcessedVideoMain, isTrackingPaused, showIncidentWarning, currentTime]);
 
   // Campus options
   const campusOptions = [
@@ -1107,8 +1116,8 @@ const Education = () => {
                         <div className="bg-red-600 text-white px-6 py-3 rounded-lg shadow-2xl border-2 border-red-400 flex items-center space-x-3">
                           <AlertTriangle className="w-6 h-6" />
                           <div>
-                            <div className="font-bold text-lg">⚠️ Potential Incident Detected (Disciplinary Action)</div>
-                            <div className="text-sm opacity-90">{incidentTimestamp}</div>
+                            <div className="font-bold text-lg">⚠️ Potential Incident Detected</div>
+                            <div className="text-base font-semibold">Disciplinary Action (Time: {incidentTimestamp})</div>
                           </div>
                         </div>
                       </div>
@@ -1338,7 +1347,17 @@ const Education = () => {
                           <AlertTriangle className="w-8 h-8" />
                           <span>Warning</span>
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1">Incident at {incidentTimestamp}</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {detectedIncidents.length} incident{detectedIncidents.length > 1 ? 's' : ''} detected
+                        </p>
+                        <Button 
+                          onClick={() => setShowIncidentDetailsModal(true)}
+                          variant="outline" 
+                          size="sm" 
+                          className="mt-2 w-full"
+                        >
+                          View Details
+                        </Button>
                       </>
                     ) : (
                       <>
@@ -1446,6 +1465,37 @@ const Education = () => {
           </div>
           <div className="flex justify-end">
             <Button onClick={() => setShowStudentInsights(false)}>Close</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Incident Details Modal */}
+      <Dialog open={showIncidentDetailsModal} onOpenChange={setShowIncidentDetailsModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Detected Incidents</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            {detectedIncidents.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No incidents detected</p>
+            ) : (
+              detectedIncidents.map((incident, index) => (
+                <div key={index} className="flex items-center justify-between p-3 border border-border rounded-lg bg-red-50 dark:bg-red-950/20">
+                  <div className="flex items-center space-x-3">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                    <div>
+                      <div className="font-semibold text-sm">{incident.type}</div>
+                      <div className="text-xs text-muted-foreground">Time: {incident.time}</div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={() => setShowIncidentDetailsModal(false)}>
+              Close
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
