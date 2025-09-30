@@ -116,8 +116,10 @@ const Education = () => {
   const [incidentTimestamp, setIncidentTimestamp] = useState<string>('');
   const [safetyStatus, setSafetyStatus] = useState<'Safe' | 'Warning'>('Safe');
   
-  // Update clock every second starting from 14:30
+  // Update clock every second starting from 14:30 (pause when tracking is paused)
   React.useEffect(() => {
+    if (isTrackingPaused) return; // Don't update clock when tracking is paused
+
     const timer = setInterval(() => {
       setCurrentTime(prevTime => {
         const newTime = new Date(prevTime);
@@ -127,7 +129,7 @@ const Education = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [isTrackingPaused]);
 
   // Update FPS when video source changes
   React.useEffect(() => {
@@ -339,12 +341,7 @@ const Education = () => {
 
       // If incident detected, show warning
       if (hasIncident && !showIncidentWarning) {
-        const video = document.getElementById('education-video') as HTMLVideoElement;
-        const videoTime = video.currentTime;
-        const minutes = Math.floor(videoTime / 60);
-        const seconds = Math.floor(videoTime % 60);
-        const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-        const timestamp = new Date().toLocaleTimeString() + ' (Video Time: ' + timeString + ')';
+        const timestamp = new Date().toLocaleTimeString();
         setIncidentTimestamp(timestamp);
         setSafetyStatus('Warning');
         setShowIncidentWarning(true);
