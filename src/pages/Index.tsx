@@ -221,7 +221,7 @@ export default function Index() {
   const [trackingData, setTrackingData] = React.useState<any>(null);
   const [isLoadingTrackingData, setIsLoadingTrackingData] = React.useState(false);
   const [currentFrame, setCurrentFrame] = React.useState(0);
-  const [videoFPS, setVideoFPS] = React.useState<number>(13.09); // Default fallback
+  const [videoFPS, setVideoFPS] = React.useState<number>(12.5); // Actual FPS: 12.5 for retail video
   
   // Store Selection Mode Toggle
   const [isGroupMode, setIsGroupMode] = React.useState(false);
@@ -819,8 +819,8 @@ export default function Index() {
           setVideoFPS(detectedFPS);
           console.log('Detected video FPS:', detectedFPS);
         } catch (error) {
-          console.log('FPS detection failed, using default:', error);
-          setVideoFPS(13.09);
+          console.log('FPS detection failed, using fallback:', error);
+          setVideoFPS(12.5);
         }
       };
       

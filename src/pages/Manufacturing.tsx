@@ -84,7 +84,7 @@ const Manufacturing = () => {
   const [trackingData, setTrackingData] = React.useState<any>(null);
   const [isLoadingTrackingData, setIsLoadingTrackingData] = React.useState(false);
   const [currentFrame, setCurrentFrame] = React.useState(0);
-  const [videoFPS, setVideoFPS] = React.useState<number>(30); // Default FPS for manufacturing video
+  const [videoFPS, setVideoFPS] = React.useState<number>(25); // Actual FPS for manufacturing video
   
   // Tracking options
   const [trackingOptions, setTrackingOptions] = React.useState({
@@ -103,6 +103,9 @@ const Manufacturing = () => {
   // Date/Time picker state
   const [showDateTimeModal, setShowDateTimeModal] = React.useState(false);
   const [selectedDateTime, setSelectedDateTime] = React.useState<Date | undefined>(new Date());
+  
+  // Tracking pause state
+  const [isTrackingPaused, setIsTrackingPaused] = React.useState(false);
 
   // Effect to update last synced time every second
   useEffect(() => {
@@ -286,9 +289,9 @@ const Manufacturing = () => {
       }
     };
 
-    // Update overlay every frame
+    // Update overlay every frame (only when not paused)
     const video = document.getElementById('main-video') as HTMLVideoElement;
-    if (video) {
+    if (video && !isTrackingPaused) {
       video.addEventListener('timeupdate', drawTrackingOverlay);
       video.addEventListener('seeked', drawTrackingOverlay);
       video.addEventListener('loadedmetadata', drawTrackingOverlay);
@@ -298,8 +301,11 @@ const Manufacturing = () => {
         video.removeEventListener('seeked', drawTrackingOverlay);
         video.removeEventListener('loadedmetadata', drawTrackingOverlay);
       };
+    } else if (isTrackingPaused) {
+      // When paused, draw one final frame and keep it
+      drawTrackingOverlay();
     }
-  }, [trackingData, trackingOptions, videoFPS, isProcessedVideoMain]);
+  }, [trackingData, trackingOptions, videoFPS, isProcessedVideoMain, isTrackingPaused]);
 
 
   // Location options
@@ -865,22 +871,27 @@ const Manufacturing = () => {
                   </button>
                   
                   <button 
-                    className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
+                    className={`${isTrackingPaused ? 'bg-green-500 hover:bg-green-600' : 'bg-yellow-500 hover:bg-yellow-600'} text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2`}
                     onClick={() => {
                       const mainVideo = document.getElementById('main-video') as HTMLVideoElement;
                       if (mainVideo) {
-                        if (mainVideo.paused) {
+                        if (isTrackingPaused) {
                           mainVideo.play().catch(console.log);
                         } else {
                           mainVideo.pause();
                         }
                       }
+                      setIsTrackingPaused(!isTrackingPaused);
                     }}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      {isTrackingPaused ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      )}
                     </svg>
-                    <span>Pause Tracking</span>
+                    <span>{isTrackingPaused ? 'Go Live' : 'Pause Tracking'}</span>
                   </button>
                   
                   <button 

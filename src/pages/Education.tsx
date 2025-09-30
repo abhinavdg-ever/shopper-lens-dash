@@ -104,16 +104,227 @@ const Education = () => {
   const [isTrackingPaused, setIsTrackingPaused] = useState(false);
   const [showDateTimeModal, setShowDateTimeModal] = useState(false);
   const [selectedDateTime, setSelectedDateTime] = useState<Date | undefined>(new Date());
+  const [selectedVideoSource, setSelectedVideoSource] = useState('class-1a');
+  const [trackingData, setTrackingData] = useState<any>(null);
+  const [isLoadingTrackingData, setIsLoadingTrackingData] = useState(false);
+  const [videoFPS, setVideoFPS] = useState<number>(14.79);
+  
+  // Update FPS when video source changes
+  React.useEffect(() => {
+    if (selectedVideoSource === 'class-1a') {
+      setVideoFPS(14.79);
+    } else if (selectedVideoSource === 'class-2b') {
+      setVideoFPS(20);
+    }
+  }, [selectedVideoSource]);
   
   // Tracking options for video feed
   const [trackingOptions, setTrackingOptions] = useState({
     viewClassZones: false,
     students: true,
-    teachers: false,
+    teachers: true,
     askingQuestion: false,
     unseatedMovement: false,
-    lackOfAttention: false
+    lackOfAttention: true,
+    mobilePhoneUsage: true
   });
+
+  // Load tracking data based on selected video source
+  React.useEffect(() => {
+    const loadTrackingData = async () => {
+      setIsLoadingTrackingData(true);
+      try {
+        const jsonFile = selectedVideoSource === 'class-1a' 
+          ? '/Education/Tracking File - Education 1.json'
+          : '/Education/Tracking File - Education 2.json';
+        
+        const response = await fetch(jsonFile);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setTrackingData(data);
+        console.log('Education tracking data loaded:', data);
+      } catch (error) {
+        console.error('Error loading education tracking data:', error);
+      } finally {
+        setIsLoadingTrackingData(false);
+      }
+    };
+
+    loadTrackingData();
+  }, [selectedVideoSource]);
+
+  // Draw tracking overlays on canvas
+  React.useEffect(() => {
+    if (!trackingData || !trackingData.frames) return;
+
+    const drawTrackingOverlay = () => {
+      const canvas = document.getElementById('education-tracking-canvas') as HTMLCanvasElement;
+      const video = document.getElementById('education-video') as HTMLVideoElement;
+      
+      if (!canvas || !video) return;
+
+      // Set canvas size to match video
+      canvas.width = video.offsetWidth;
+      canvas.height = video.offsetHeight;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Only show overlays if in Processed Video mode
+      if (!isProcessedVideoMain) return;
+
+      // Get current frame data based on video time
+      const videoTime = video.currentTime;
+      const fps = videoFPS;
+      const currentFrameNumber = Math.floor(videoTime * fps) + 1;
+
+      // Find frame data for current frame
+      const frameData = trackingData.frames.find((frame: any) => frame.frame_number === currentFrameNumber);
+      
+      if (!frameData) return;
+
+      const videoWidth = trackingData.dimension?.width || 1500;
+      const videoHeight = trackingData.dimension?.height || 800;
+
+      // Draw class zone if enabled
+      if (trackingOptions.viewClassZones) {
+        // Define classroom zone (covering most of the classroom area)
+        const zoneX1 = 50;
+        const zoneY1 = 50;
+        const zoneX2 = videoWidth - 50;
+        const zoneY2 = videoHeight - 50;
+
+        const scaleX = canvas.width / videoWidth;
+        const scaleY = canvas.height / videoHeight;
+
+        const scaledX1 = zoneX1 * scaleX;
+        const scaledY1 = zoneY1 * scaleY;
+        const scaledWidth = (zoneX2 - zoneX1) * scaleX;
+        const scaledHeight = (zoneY2 - zoneY1) * scaleY;
+
+        // Draw zone fill (light red like Retail)
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
+        ctx.fillRect(scaledX1, scaledY1, scaledWidth, scaledHeight);
+
+        // Draw zone border
+        ctx.strokeStyle = 'rgba(156, 163, 175, 0.8)';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([8, 4]);
+        ctx.strokeRect(scaledX1, scaledY1, scaledWidth, scaledHeight);
+        ctx.setLineDash([]);
+
+        // Draw zone label
+        ctx.fillStyle = 'rgba(156, 163, 175, 0.9)';
+        ctx.fillRect(scaledX1 + 10, scaledY1 + 10, 120, 30);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '14px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText('Classroom Zone', scaledX1 + 20, scaledY1 + 30);
+      }
+
+      // Helper function to draw a person (student or teacher)
+      const drawPerson = (person: any, isTeacher: boolean) => {
+        if (!person.bbox) return;
+        
+        // Skip if tracking is disabled for this person type
+        if (isTeacher && !trackingOptions.teachers) return;
+        if (!isTeacher && !trackingOptions.students) return;
+
+        const { x1, y1, x2, y2 } = person.bbox;
+        const scaleX = canvas.width / videoWidth;
+        const scaleY = canvas.height / videoHeight;
+
+        const scaledX1 = x1 * scaleX;
+        const scaledY1 = y1 * scaleY;
+        const scaledWidth = (x2 - x1) * scaleX;
+        const scaledHeight = (y2 - y1) * scaleY;
+
+        // Determine box color
+        let boxColor, boxWidth, labelBgColor;
+        
+        if (isTeacher) {
+          // Teachers get light grey box
+          boxColor = '#9ca3af';
+          boxWidth = 2;
+          labelBgColor = 'rgba(156, 163, 175, 0.9)';
+        } else {
+          // Students: check if should be highlighted in red based on ENABLED checkboxes only
+          let shouldHighlight = false;
+          
+          if (trackingOptions.askingQuestion && person.hand_raised) {
+            shouldHighlight = true;
+          }
+          if (trackingOptions.unseatedMovement && person.standing) {
+            shouldHighlight = true;
+          }
+          if (trackingOptions.lackOfAttention && (!person.face_up || !person.attentive || person.talking || person.looking_around)) {
+            shouldHighlight = true;
+          }
+          if (trackingOptions.mobilePhoneUsage && person.using_phone) {
+            shouldHighlight = true;
+          }
+          
+          boxColor = shouldHighlight ? '#ef4444' : '#00ff00';
+          boxWidth = shouldHighlight ? 3 : 2;
+          labelBgColor = shouldHighlight ? 'rgba(239, 68, 68, 0.9)' : 'rgba(0, 0, 0, 0.7)';
+        }
+
+        // Draw bounding box
+        ctx.strokeStyle = boxColor;
+        ctx.lineWidth = boxWidth;
+        ctx.strokeRect(scaledX1, scaledY1, scaledWidth, scaledHeight);
+
+        // Draw label - only show type and ID
+        const labelText = isTeacher ? 'Teacher' : `Student ${person.id}`;
+        
+        ctx.fillStyle = labelBgColor;
+        const labelWidth = isTeacher ? 80 : 100;
+        ctx.fillRect(scaledX1, scaledY1 - 25, labelWidth, 25);
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(labelText, scaledX1 + 5, scaledY1 - 8);
+      };
+
+      // Draw students
+      if (frameData.students) {
+        frameData.students.forEach((student: any) => {
+          const isTeacher = student.type === 'teacher';
+          drawPerson(student, isTeacher);
+        });
+      }
+
+      // Draw teachers from separate teachers array
+      if (frameData.teachers && frameData.teachers.length > 0) {
+        frameData.teachers.forEach((teacher: any) => {
+          drawPerson(teacher, true);
+        });
+      }
+    };
+
+    // Update overlay every frame (only when not paused)
+    const video = document.getElementById('education-video') as HTMLVideoElement;
+    if (video && !isTrackingPaused) {
+      video.addEventListener('timeupdate', drawTrackingOverlay);
+      video.addEventListener('seeked', drawTrackingOverlay);
+      video.addEventListener('loadedmetadata', drawTrackingOverlay);
+      
+      return () => {
+        video.removeEventListener('timeupdate', drawTrackingOverlay);
+        video.removeEventListener('seeked', drawTrackingOverlay);
+        video.removeEventListener('loadedmetadata', drawTrackingOverlay);
+      };
+    } else if (isTrackingPaused) {
+      // When paused, draw one final frame and keep it
+      drawTrackingOverlay();
+    }
+  }, [trackingData, trackingOptions, videoFPS, isProcessedVideoMain, isTrackingPaused]);
 
   // Campus options
   const campusOptions = [
@@ -169,6 +380,44 @@ const Education = () => {
   };
 
   const displayedAttendanceTrends = generateAttendanceTrends();
+
+  // Calculate live insights from tracking data
+  const [liveStudentCount, setLiveStudentCount] = React.useState(27);
+  const [liveEngagement, setLiveEngagement] = React.useState(82);
+
+  React.useEffect(() => {
+    if (!trackingData || !trackingData.frames) return;
+
+    const calculateLiveMetrics = () => {
+      const video = document.getElementById('education-video') as HTMLVideoElement;
+      if (!video) return;
+
+      const videoTime = video.currentTime;
+      const fps = videoFPS;
+      const currentFrameNumber = Math.floor(videoTime * fps) + 1;
+
+      const frameData = trackingData.frames.find((frame: any) => frame.frame_number === currentFrameNumber);
+      
+      if (frameData && frameData.students) {
+        // Count students in current frame
+        setLiveStudentCount(frameData.students.length);
+
+        // Calculate engagement score based on attentive students
+        const attentiveCount = frameData.students.filter((s: any) => 
+          s.attentive && s.face_up && !s.talking && !s.looking_around && !s.using_phone
+        ).length;
+        
+        const engagementScore = frameData.students.length > 0
+          ? Math.round((attentiveCount / frameData.students.length) * 100)
+          : 0;
+        
+        setLiveEngagement(engagementScore);
+      }
+    };
+
+    const interval = setInterval(calculateLiveMetrics, 1000);
+    return () => clearInterval(interval);
+  }, [trackingData, videoFPS]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -631,46 +880,62 @@ const Education = () => {
                     </button>
                   </div>
                   <div className="space-y-2">
-                    {videoSources.map((source) => (
-                      <div key={source.id} className={`p-3 border rounded-lg cursor-pointer transition-all group ${
-                        source.status === 'live'
-                          ? 'bg-primary/10 border-primary/20 hover:bg-primary/15'
-                          : source.status === 'pending'
-                          ? 'bg-yellow-50 border-yellow-200 hover:bg-yellow-100'
-                          : 'bg-muted/30 border-border/30 hover:bg-muted/50'
-                      }`}>
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium text-sm">{source.name}</span>
-                          <div className="flex items-center space-x-2">
-                            <div className={`w-2 h-2 rounded-full ${
-                              source.status === 'live'
-                                ? 'bg-green-500 animate-pulse'
-                                : source.status === 'pending'
-                                ? 'bg-yellow-500'
-                                : 'bg-gray-400'
-                            }`}></div>
-                            <button
-                              className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs px-1"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSourceToDelete(source.name);
-                                setShowDeleteSourceConfirm(true);
-                              }}
-                            >
-                              ×
-                            </button>
+                    {videoSources.map((source) => {
+                      const sourceId = source.name === 'Class 1-A' ? 'class-1a' : 
+                                       source.name === 'Class 2-B' ? 'class-2b' : 'main-ground';
+                      const isActive = selectedVideoSource === sourceId;
+                      
+                      return (
+                        <div 
+                          key={source.id} 
+                          className={`p-3 border rounded-lg cursor-pointer transition-all group ${
+                            isActive 
+                              ? 'bg-primary/20 border-primary/40 ring-2 ring-primary/50'
+                              : source.status === 'live'
+                              ? 'bg-primary/10 border-primary/20 hover:bg-primary/15'
+                              : source.status === 'pending'
+                              ? 'bg-yellow-50 border-yellow-200 hover:bg-yellow-100'
+                              : 'bg-muted/30 border-border/30 hover:bg-muted/50'
+                          }`}
+                          onClick={() => {
+                            if (source.status === 'live') {
+                              setSelectedVideoSource(sourceId);
+                            }
+                          }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-sm">{source.name}</span>
+                            <div className="flex items-center space-x-2">
+                              <div className={`w-2 h-2 rounded-full ${
+                                source.status === 'live'
+                                  ? 'bg-green-500 animate-pulse'
+                                  : source.status === 'pending'
+                                  ? 'bg-yellow-500'
+                                  : 'bg-gray-400'
+                              }`}></div>
+                              <button
+                                className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs px-1"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSourceToDelete(source.name);
+                                  setShowDeleteSourceConfirm(true);
+                                }}
+                              >
+                                ×
+                              </button>
+                            </div>
                           </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {source.status === 'live' 
+                              ? 'Live' 
+                              : source.status === 'pending'
+                              ? 'Yet to be configured*'
+                              : 'Offline'
+                            } • {source.quality}
+                          </p>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {source.status === 'live' 
-                            ? 'Live' 
-                            : source.status === 'pending'
-                            ? 'Yet to be configured*'
-                            : 'Offline'
-                          } • {source.quality}
-                        </p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -749,14 +1014,23 @@ const Education = () => {
                           />
                           <span className="text-sm font-medium">Lack of Attention</span>
                         </label>
+                        <label className="flex items-center space-x-3 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 text-primary" 
+                            checked={trackingOptions.mobilePhoneUsage}
+                            onChange={(e) => setTrackingOptions(prev => ({ ...prev, mobilePhoneUsage: e.target.checked }))}
+                          />
+                          <span className="text-sm font-medium">Mobile Phone Usage</span>
+                        </label>
                         <div className="opacity-50 space-y-2 mt-2">
                           <label className="flex items-center space-x-3 cursor-not-allowed">
                             <input type="checkbox" className="w-4 h-4 text-primary" disabled />
-                            <span className="text-sm font-medium text-gray-400">Mobile Phone Usage <span className="text-xs">(Coming Soon)</span></span>
+                            <span className="text-sm font-medium text-gray-400">Student Aggression <span className="text-xs">(Coming Soon)</span></span>
                           </label>
                           <label className="flex items-center space-x-3 cursor-not-allowed">
                             <input type="checkbox" className="w-4 h-4 text-primary" disabled />
-                            <span className="text-sm font-medium text-gray-400">Fighting/Aggression <span className="text-xs">(Coming Soon)</span></span>
+                            <span className="text-sm font-medium text-gray-400">Disciplinary Incidents <span className="text-xs">(Coming Soon)</span></span>
                           </label>
                         </div>
                       </div>
@@ -770,7 +1044,10 @@ const Education = () => {
                 <div className="bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-xl p-6 shadow-sm">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-4">
-                      <h3 className="text-lg font-semibold">Class 1-A</h3>
+                      <h3 className="text-lg font-semibold">
+                        {selectedVideoSource === 'class-1a' ? 'Class 1-A' : 
+                         selectedVideoSource === 'class-2b' ? 'Class 2-B' : 'Main Ground'}
+                      </h3>
                       <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                         <span>{currentTime.toLocaleDateString()}</span>
                         <span>•</span>
@@ -780,20 +1057,77 @@ const Education = () => {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-sm font-medium text-green-700">Live Tracking</span>
+                      <div className={`w-2 h-2 rounded-full ${isTrackingPaused ? 'bg-yellow-500' : 'bg-green-500 animate-pulse'}`}></div>
+                      <span className={`text-sm font-medium ${isTrackingPaused ? 'text-yellow-700' : 'text-green-700'}`}>
+                        {isTrackingPaused ? 'Tracking Paused' : 'Live Tracking'}
+                      </span>
                     </div>
                   </div>
                   
-                  {/* Video Player Placeholder */}
+                  {/* Video Player */}
                   <div className="relative aspect-video bg-gradient-to-br from-slate-900 to-slate-800 rounded-lg overflow-hidden border border-border/30">
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center text-white">
-                        <GraduationCap className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                        <p className="text-lg font-semibold">Classroom Video Feed</p>
-                        <p className="text-sm opacity-75 mt-2">Premium Feature - Contact Sales</p>
-                      </div>
-                    </div>
+                    <video
+                      id="education-video"
+                      key={selectedVideoSource}
+                      className="w-full h-full object-cover"
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      preload="auto"
+                      onLoadStart={() => {
+                        console.log('Video loading:', selectedVideoSource);
+                        const videoSrc = selectedVideoSource === 'class-1a' 
+                          ? '/Education/Original Video - Education 1.mp4' 
+                          : '/Education/Original Video - Education 2.mp4';
+                        console.log('Video src:', videoSrc);
+                        console.log('Full URL:', window.location.origin + videoSrc);
+                      }}
+                      onLoadedData={() => {
+                        console.log('Video loaded successfully:', selectedVideoSource);
+                        const video = document.getElementById('education-video') as HTMLVideoElement;
+                        if (video) {
+                          console.log('Video duration:', video.duration);
+                          console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+                        }
+                      }}
+                      onError={(e) => {
+                        console.error('Video error:', e);
+                        const video = e.target as HTMLVideoElement;
+                        console.error('Video src:', video.src);
+                        console.error('Current src:', video.currentSrc);
+                        if (video.error) {
+                          console.error('Error code:', video.error.code);
+                          console.error('Error message:', video.error.message);
+                        }
+                      }}
+                      onCanPlay={() => {
+                        console.log('Video can play:', selectedVideoSource);
+                      }}
+                      onEnded={() => {
+                        const video = document.getElementById('education-video') as HTMLVideoElement;
+                        if (video) {
+                          video.currentTime = 0;
+                          video.play().catch(console.log);
+                        }
+                      }}
+                    >
+                      <source 
+                        src={selectedVideoSource === 'class-1a' 
+                          ? '/Education/Original Video - Education 1.mp4' 
+                          : '/Education/Original Video - Education 2.mp4'
+                        } 
+                        type="video/mp4"
+                      />
+                      Your browser does not support the video tag.
+                    </video>
+                    
+                    {/* Tracking Overlay Canvas */}
+                    <canvas
+                      id="education-tracking-canvas"
+                      className="absolute top-0 left-0 w-full h-full pointer-events-none"
+                      style={{ zIndex: 10 }}
+                    />
                     
                     {/* Video Type Indicator */}
                     <div className="absolute top-4 left-4 bg-black/70 text-white text-sm px-3 py-1 rounded-lg font-semibold">
@@ -814,33 +1148,39 @@ const Education = () => {
                     <button 
                       className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
                       onClick={() => {
-                        // Create canvas to capture video frame
-                        const videoPlaceholder = document.querySelector('.aspect-video') as HTMLElement;
-                        if (videoPlaceholder) {
-                          const canvas = document.createElement('canvas');
-                          canvas.width = 1920;
-                          canvas.height = 1080;
-                          const ctx = canvas.getContext('2d');
+                        const video = document.getElementById('education-video') as HTMLVideoElement;
+                        const canvas = document.getElementById('education-tracking-canvas') as HTMLCanvasElement;
+                        
+                        if (video) {
+                          // Create canvas with video dimensions
+                          const snapshotCanvas = document.createElement('canvas');
+                          snapshotCanvas.width = video.videoWidth || 1920;
+                          snapshotCanvas.height = video.videoHeight || 1080;
+                          const ctx = snapshotCanvas.getContext('2d');
                           
                           if (ctx) {
-                            // Draw a dark background
-                            ctx.fillStyle = '#1e293b';
-                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                            // Draw the video frame
+                            ctx.drawImage(video, 0, 0, snapshotCanvas.width, snapshotCanvas.height);
                             
-                            // Add text
+                            // Draw tracking overlays if in processed mode
+                            if (canvas && isProcessedVideoMain) {
+                              ctx.drawImage(canvas, 0, 0, snapshotCanvas.width, snapshotCanvas.height);
+                            }
+                            
+                            // Add timestamp
+                            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                            ctx.fillRect(10, snapshotCanvas.height - 80, 300, 70);
                             ctx.fillStyle = '#ffffff';
-                            ctx.font = '40px Arial';
-                            ctx.textAlign = 'center';
-                            ctx.fillText('Classroom Video Snapshot', canvas.width / 2, canvas.height / 2 - 40);
-                            ctx.font = '24px Arial';
-                            ctx.fillText('Class 1-A', canvas.width / 2, canvas.height / 2 + 10);
-                            ctx.fillText(`Captured: ${new Date().toLocaleString()}`, canvas.width / 2, canvas.height / 2 + 50);
-                            ctx.fillText(`Mode: ${isProcessedVideoMain ? 'Processed' : 'Original'}`, canvas.width / 2, canvas.height / 2 + 90);
+                            ctx.font = '16px Arial';
+                            const className = selectedVideoSource === 'class-1a' ? 'Class 1-A' : 'Class 2-B';
+                            ctx.fillText(`Class: ${className}`, 20, snapshotCanvas.height - 55);
+                            ctx.fillText(`Captured: ${new Date().toLocaleString()}`, 20, snapshotCanvas.height - 35);
+                            ctx.fillText(`Mode: ${isProcessedVideoMain ? 'Processed' : 'Original'}`, 20, snapshotCanvas.height - 15);
                             
                             // Download the image
                             const link = document.createElement('a');
                             link.download = `classroom-snapshot-${Date.now()}.png`;
-                            link.href = canvas.toDataURL();
+                            link.href = snapshotCanvas.toDataURL();
                             link.click();
                           }
                         }
@@ -855,7 +1195,17 @@ const Education = () => {
                     
                     <button 
                       className={`${isTrackingPaused ? 'bg-green-500 hover:bg-green-600' : 'bg-yellow-500 hover:bg-yellow-600'} text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2`}
-                      onClick={() => setIsTrackingPaused(!isTrackingPaused)}
+                      onClick={() => {
+                        const video = document.getElementById('education-video') as HTMLVideoElement;
+                        if (video) {
+                          if (isTrackingPaused) {
+                            video.play().catch(console.log);
+                          } else {
+                            video.pause();
+                          }
+                        }
+                        setIsTrackingPaused(!isTrackingPaused);
+                      }}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         {isTrackingPaused ? (
@@ -864,7 +1214,7 @@ const Education = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         )}
                       </svg>
-                      <span>{isTrackingPaused ? 'Resume Tracking' : 'Pause Tracking'}</span>
+                      <span>{isTrackingPaused ? 'Go Live' : 'Pause Tracking'}</span>
                     </button>
                     
                     <button 
@@ -885,7 +1235,7 @@ const Education = () => {
             <section>
               <SectionHeader 
                 title="Live Insights" 
-                description="Real-time analytics and monitoring (based on last 1 hour of data)"
+                description="Real-time analytics and monitoring"
               />
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
@@ -894,8 +1244,10 @@ const Education = () => {
                     <CardTitle className="text-sm font-medium text-muted-foreground">Students Present</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold text-green-600">27</div>
-                    <p className="text-sm text-muted-foreground mt-1">Out of 30 total</p>
+                    <div className="text-3xl font-bold text-green-600">{liveStudentCount}</div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Out of {selectedVideoSource === 'class-2b' ? '15' : '30'} total
+                    </p>
                   </CardContent>
                 </Card>
 
@@ -904,8 +1256,8 @@ const Education = () => {
                     <CardTitle className="text-sm font-medium text-muted-foreground">Class Engagement</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold text-blue-600">82</div>
-                    <p className="text-sm text-muted-foreground mt-1">Average score</p>
+                    <div className="text-3xl font-bold text-blue-600">{liveEngagement}%</div>
+                    <p className="text-sm text-muted-foreground mt-1">Students attentive</p>
                   </CardContent>
                 </Card>
 
@@ -914,8 +1266,17 @@ const Education = () => {
                     <CardTitle className="text-sm font-medium text-muted-foreground">Teacher Present</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold text-purple-600">Yes</div>
-                    <p className="text-sm text-muted-foreground mt-1">Active in class</p>
+                    {selectedVideoSource === 'class-1a' ? (
+                      <>
+                        <div className="text-3xl font-bold text-green-600">Present</div>
+                        <p className="text-sm text-muted-foreground mt-1">Active in class</p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-2xl font-bold text-gray-500">Unknown</div>
+                        <p className="text-sm text-muted-foreground mt-1">Not tracked yet</p>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
 
