@@ -98,7 +98,11 @@ const Education = () => {
   const [showDeleteSourceConfirm, setShowDeleteSourceConfirm] = useState(false);
   const [sourceToDelete, setSourceToDelete] = useState<string | null>(null);
   const [isProcessedVideoMain, setIsProcessedVideoMain] = useState(true);
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState(() => {
+    const now = new Date();
+    now.setHours(14, 30, 0, 0); // Set to 14:30 (2:30 PM)
+    return now;
+  });
   const [sourceType, setSourceType] = useState('classroom');
   const [selectedClassroomId, setSelectedClassroomId] = useState('');
   const [isTrackingPaused, setIsTrackingPaused] = useState(false);
@@ -112,6 +116,19 @@ const Education = () => {
   const [incidentTimestamp, setIncidentTimestamp] = useState<string>('');
   const [safetyStatus, setSafetyStatus] = useState<'Safe' | 'Warning'>('Safe');
   
+  // Update clock every second starting from 14:30
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(prevTime => {
+        const newTime = new Date(prevTime);
+        newTime.setSeconds(newTime.getSeconds() + 1);
+        return newTime;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
   // Update FPS when video source changes
   React.useEffect(() => {
     if (selectedVideoSource === 'class-1a') {
