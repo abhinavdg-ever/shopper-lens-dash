@@ -9,6 +9,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Input } from "@/components/ui/input";
 import { ArrowLeft, GraduationCap, Users, TrendingUp, AlertTriangle, BookOpen, UserCheck, CalendarIcon, Crown, Info } from 'lucide-react';
 import { format } from "date-fns";
 import { SectionHeader } from "@/components/dashboard/SectionHeader";
@@ -74,7 +75,7 @@ const Education = () => {
   
   // State for campus/class/section selection
   const [selectedCampus, setSelectedCampus] = useState('main-campus');
-  const [selectedClass, setSelectedClass] = useState('class-10');
+  const [selectedClass, setSelectedClass] = useState('class-1');
   const [selectedSection, setSelectedSection] = useState('section-a');
   const [isTodayMode, setIsTodayMode] = useState(true);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date } | undefined>({
@@ -86,6 +87,33 @@ const Education = () => {
   const [showStudentInsights, setShowStudentInsights] = useState(false);
   const [showIncidentDetails, setShowIncidentDetails] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState<any>(null);
+  
+  // Video feed states
+  const [videoSources, setVideoSources] = useState([
+    { id: 1, name: "Class 1-A", status: "live", quality: "1080p" },
+    { id: 2, name: "Class 2-B", status: "live", quality: "720p" },
+    { id: 3, name: "Main Ground", status: "offline", quality: "720p" }
+  ]);
+  const [isAddSourceModalOpen, setIsAddSourceModalOpen] = useState(false);
+  const [showDeleteSourceConfirm, setShowDeleteSourceConfirm] = useState(false);
+  const [sourceToDelete, setSourceToDelete] = useState<string | null>(null);
+  const [isProcessedVideoMain, setIsProcessedVideoMain] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [sourceType, setSourceType] = useState('classroom');
+  const [selectedClassroomId, setSelectedClassroomId] = useState('');
+  const [isTrackingPaused, setIsTrackingPaused] = useState(false);
+  const [showDateTimeModal, setShowDateTimeModal] = useState(false);
+  const [selectedDateTime, setSelectedDateTime] = useState<Date | undefined>(new Date());
+  
+  // Tracking options for video feed
+  const [trackingOptions, setTrackingOptions] = useState({
+    viewClassZones: false,
+    students: true,
+    teachers: false,
+    askingQuestion: false,
+    unseatedMovement: false,
+    lackOfAttention: false
+  });
 
   // Campus options
   const campusOptions = [
@@ -96,11 +124,11 @@ const Education = () => {
 
   // Class options
   const classOptions = [
-    { value: 'class-8', label: 'Class 8' },
-    { value: 'class-9', label: 'Class 9' },
-    { value: 'class-10', label: 'Class 10' },
-    { value: 'class-11', label: 'Class 11' },
-    { value: 'class-12', label: 'Class 12' }
+    { value: 'class-1', label: 'Class 1' },
+    { value: 'class-2', label: 'Class 2' },
+    { value: 'class-3', label: 'Class 3' },
+    { value: 'class-4', label: 'Class 4' },
+    { value: 'class-5', label: 'Class 5' }
   ];
 
   // Section options
@@ -566,24 +594,342 @@ const Education = () => {
           </TabsContent>
 
           {/* Video Feed Tab */}
-          <TabsContent value="video-feed" className="space-y-6">
-            <Card className="border-blue-200 bg-blue-50">
-              <CardHeader>
-                <div className="flex items-center space-x-2">
-                  <Crown className="w-5 h-5 text-blue-600" />
-                  <CardTitle className="text-blue-900">Premium Feature</CardTitle>
+          <TabsContent value="video-feed" className="space-y-8">
+            <SectionHeader 
+              title="Interactive Video Dashboard" 
+              description="Real-time classroom monitoring with AI-powered student and teacher tracking"
+              className="mb-6"
+            />
+            
+            {/* Premium Notice */}
+            <div className="bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 rounded-lg p-6 mb-8">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-lg">★</span>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-blue-800 mb-4">
-                  Video feed analysis for education campuses is available as a premium feature. 
-                  This includes classroom monitoring, attendance verification, and safety incident detection.
-                </p>
-                <Button className="bg-blue-600 hover:bg-blue-700">
-                  Contact Sales for Access
+                <div>
+                  <h3 className="text-lg font-semibold text-orange-800">Premium Feature</h3>
+                  <p className="text-orange-700 text-sm">Video Feed Analysis is available only with Premium subscription. Upgrade to access real-time classroom monitoring and AI-powered analytics.</p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <Button className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white">
+                  Talk to our Sales Team to upgrade
                 </Button>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
+
+            {/* Main Video Interface */}
+            <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+              {/* Video Selection Sidebar */}
+              <div className="xl:col-span-1 space-y-6">
+                <div className="bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-xl p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-foreground">Video Sources</h3>
+                    <button className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded">
+                      + Add Source
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {videoSources.map((source) => (
+                      <div key={source.id} className={`p-3 border rounded-lg cursor-pointer transition-all group ${
+                        source.status === 'live'
+                          ? 'bg-primary/10 border-primary/20 hover:bg-primary/15'
+                          : source.status === 'pending'
+                          ? 'bg-yellow-50 border-yellow-200 hover:bg-yellow-100'
+                          : 'bg-muted/30 border-border/30 hover:bg-muted/50'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-sm">{source.name}</span>
+                          <div className="flex items-center space-x-2">
+                            <div className={`w-2 h-2 rounded-full ${
+                              source.status === 'live'
+                                ? 'bg-green-500 animate-pulse'
+                                : source.status === 'pending'
+                                ? 'bg-yellow-500'
+                                : 'bg-gray-400'
+                            }`}></div>
+                            <button
+                              className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs px-1"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSourceToDelete(source.name);
+                                setShowDeleteSourceConfirm(true);
+                              }}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {source.status === 'live' 
+                            ? 'Live' 
+                            : source.status === 'pending'
+                            ? 'Yet to be configured*'
+                            : 'Offline'
+                          } • {source.quality}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tracking Controls */}
+                <div className="bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-xl p-6 shadow-sm">
+                  <h3 className="text-lg font-semibold mb-4 text-foreground">Tracking Menu</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-2 block">View Options</label>
+                      <div className="space-y-2">
+                        <label className="flex items-center space-x-3 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 text-primary" 
+                            checked={trackingOptions.viewClassZones}
+                            onChange={(e) => setTrackingOptions(prev => ({ ...prev, viewClassZones: e.target.checked }))}
+                          />
+                          <span className="text-sm font-medium">View Class Zones</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-2 block">Person Type</label>
+                      <div className="space-y-2">
+                        <label className="flex items-center space-x-3 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 text-primary" 
+                            checked={trackingOptions.students}
+                            onChange={(e) => setTrackingOptions(prev => ({ ...prev, students: e.target.checked }))}
+                          />
+                          <span className="text-sm font-medium">Student</span>
+                        </label>
+                        <label className="flex items-center space-x-3 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 text-primary" 
+                            checked={trackingOptions.teachers}
+                            onChange={(e) => setTrackingOptions(prev => ({ ...prev, teachers: e.target.checked }))}
+                          />
+                          <span className="text-sm font-medium">Teacher</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-2 block">
+                        Student Behavior <span className="italic text-muted-foreground">(Highlighted in Red)</span>
+                      </label>
+                      <div className="space-y-2">
+                        <label className="flex items-center space-x-3 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 text-primary" 
+                            checked={trackingOptions.askingQuestion}
+                            onChange={(e) => setTrackingOptions(prev => ({ ...prev, askingQuestion: e.target.checked }))}
+                          />
+                          <span className="text-sm font-medium">Asking a Question/Doubt</span>
+                        </label>
+                        <label className="flex items-center space-x-3 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 text-primary" 
+                            checked={trackingOptions.unseatedMovement}
+                            onChange={(e) => setTrackingOptions(prev => ({ ...prev, unseatedMovement: e.target.checked }))}
+                          />
+                          <span className="text-sm font-medium">Unseated/Movement in Class</span>
+                        </label>
+                        <label className="flex items-center space-x-3 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 text-primary" 
+                            checked={trackingOptions.lackOfAttention}
+                            onChange={(e) => setTrackingOptions(prev => ({ ...prev, lackOfAttention: e.target.checked }))}
+                          />
+                          <span className="text-sm font-medium">Lack of Attention</span>
+                        </label>
+                        <div className="opacity-50 space-y-2 mt-2">
+                          <label className="flex items-center space-x-3 cursor-not-allowed">
+                            <input type="checkbox" className="w-4 h-4 text-primary" disabled />
+                            <span className="text-sm font-medium text-gray-400">Mobile Phone Usage <span className="text-xs">(Coming Soon)</span></span>
+                          </label>
+                          <label className="flex items-center space-x-3 cursor-not-allowed">
+                            <input type="checkbox" className="w-4 h-4 text-primary" disabled />
+                            <span className="text-sm font-medium text-gray-400">Fighting/Aggression <span className="text-xs">(Coming Soon)</span></span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Video Display */}
+              <div className="xl:col-span-3">
+                <div className="bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-xl p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-4">
+                      <h3 className="text-lg font-semibold">Class 1-A</h3>
+                      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                        <span>{currentTime.toLocaleDateString()}</span>
+                        <span>•</span>
+                        <span>{currentTime.toLocaleTimeString()}</span>
+                        <span>•</span>
+                        <span>1 Camera</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="text-sm font-medium text-green-700">Live Tracking</span>
+                    </div>
+                  </div>
+                  
+                  {/* Video Player Placeholder */}
+                  <div className="relative aspect-video bg-gradient-to-br from-slate-900 to-slate-800 rounded-lg overflow-hidden border border-border/30">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="text-center text-white">
+                        <GraduationCap className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                        <p className="text-lg font-semibold">Classroom Video Feed</p>
+                        <p className="text-sm opacity-75 mt-2">Premium Feature - Contact Sales</p>
+                      </div>
+                    </div>
+                    
+                    {/* Video Type Indicator */}
+                    <div className="absolute top-4 left-4 bg-black/70 text-white text-sm px-3 py-1 rounded-lg font-semibold">
+                      {isProcessedVideoMain ? "Processed Video" : "Original Video"}
+                    </div>
+
+                    {/* Toggle Button */}
+                    <button 
+                      className="absolute top-4 right-4 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded-lg flex items-center shadow-lg transition-colors"
+                      onClick={() => setIsProcessedVideoMain(!isProcessedVideoMain)}
+                    >
+                      {isProcessedVideoMain ? "Switch to Original" : "Switch to Processed"}
+                    </button>
+                  </div>
+
+                  {/* Video Control Buttons */}
+                  <div className="mt-4 flex justify-center space-x-3">
+                    <button 
+                      className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
+                      onClick={() => {
+                        // Create canvas to capture video frame
+                        const videoPlaceholder = document.querySelector('.aspect-video') as HTMLElement;
+                        if (videoPlaceholder) {
+                          const canvas = document.createElement('canvas');
+                          canvas.width = 1920;
+                          canvas.height = 1080;
+                          const ctx = canvas.getContext('2d');
+                          
+                          if (ctx) {
+                            // Draw a dark background
+                            ctx.fillStyle = '#1e293b';
+                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                            
+                            // Add text
+                            ctx.fillStyle = '#ffffff';
+                            ctx.font = '40px Arial';
+                            ctx.textAlign = 'center';
+                            ctx.fillText('Classroom Video Snapshot', canvas.width / 2, canvas.height / 2 - 40);
+                            ctx.font = '24px Arial';
+                            ctx.fillText('Class 1-A', canvas.width / 2, canvas.height / 2 + 10);
+                            ctx.fillText(`Captured: ${new Date().toLocaleString()}`, canvas.width / 2, canvas.height / 2 + 50);
+                            ctx.fillText(`Mode: ${isProcessedVideoMain ? 'Processed' : 'Original'}`, canvas.width / 2, canvas.height / 2 + 90);
+                            
+                            // Download the image
+                            const link = document.createElement('a');
+                            link.download = `classroom-snapshot-${Date.now()}.png`;
+                            link.href = canvas.toDataURL();
+                            link.click();
+                          }
+                        }
+                      }}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <span>Save Snapshot</span>
+                    </button>
+                    
+                    <button 
+                      className={`${isTrackingPaused ? 'bg-green-500 hover:bg-green-600' : 'bg-yellow-500 hover:bg-yellow-600'} text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2`}
+                      onClick={() => setIsTrackingPaused(!isTrackingPaused)}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {isTrackingPaused ? (
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        ) : (
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        )}
+                      </svg>
+                      <span>{isTrackingPaused ? 'Resume Tracking' : 'Pause Tracking'}</span>
+                    </button>
+                    
+                    <button 
+                      className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
+                      onClick={() => setShowDateTimeModal(true)}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span>Go to Particular Date/Time</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Insights */}
+            <section>
+              <SectionHeader 
+                title="Live Insights" 
+                description="Real-time analytics and monitoring (based on last 1 hour of data)"
+              />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Students Present</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-green-600">27</div>
+                    <p className="text-sm text-muted-foreground mt-1">Out of 30 total</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Class Engagement</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-blue-600">82</div>
+                    <p className="text-sm text-muted-foreground mt-1">Average score</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Teacher Present</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-purple-600">Yes</div>
+                    <p className="text-sm text-muted-foreground mt-1">Active in class</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Safety Status</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-green-600">Normal</div>
+                    <p className="text-sm text-muted-foreground mt-1">No incidents detected</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </section>
           </TabsContent>
         </Tabs>
       </main>
@@ -680,6 +1026,50 @@ const Education = () => {
           </div>
           <div className="flex justify-end">
             <Button onClick={() => setShowStudentInsights(false)}>Close</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Date/Time Picker Modal for Video Feed */}
+      <Dialog open={showDateTimeModal} onOpenChange={setShowDateTimeModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Go to Particular Date/Time</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Select Date and Time</label>
+              <Input
+                type="datetime-local"
+                className="w-full"
+                value={selectedDateTime ? format(selectedDateTime, "yyyy-MM-dd'T'HH:mm") : ''}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setSelectedDateTime(new Date(e.target.value));
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-1 text-sm text-muted-foreground">
+              <p>• Cannot go more than 2 days back from today</p>
+              <p>• Up to 48 hours of data is stored</p>
+              <p>• Contact Admin for longer timeframe</p>
+            </div>
+          </div>
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setShowDateTimeModal(false)}>
+              Cancel
+            </Button>
+            <Button 
+              className="bg-teal-500 hover:bg-teal-600"
+              onClick={() => {
+                // Jump to specific time logic here
+                console.log('Jumping to:', selectedDateTime);
+                setShowDateTimeModal(false);
+              }}
+            >
+              Go to Time
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
