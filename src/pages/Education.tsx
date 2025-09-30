@@ -323,7 +323,11 @@ const Education = () => {
       // If incident detected, show warning
       if (hasIncident && !showIncidentWarning) {
         const video = document.getElementById('education-video') as HTMLVideoElement;
-        const timestamp = new Date().toLocaleTimeString() + ' (Frame: ' + currentFrameNumber + ')';
+        const videoTime = video.currentTime;
+        const minutes = Math.floor(videoTime / 60);
+        const seconds = Math.floor(videoTime % 60);
+        const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        const timestamp = new Date().toLocaleTimeString() + ' (Video Time: ' + timeString + ')';
         setIncidentTimestamp(timestamp);
         setSafetyStatus('Warning');
         setShowIncidentWarning(true);
@@ -1050,16 +1054,6 @@ const Education = () => {
                           />
                           <span className="text-sm font-medium">Mobile Phone Usage</span>
                         </label>
-                        <div className="opacity-50 space-y-2 mt-2">
-                          <label className="flex items-center space-x-3 cursor-not-allowed">
-                            <input type="checkbox" className="w-4 h-4 text-primary" disabled />
-                            <span className="text-sm font-medium text-gray-400">Student Aggression <span className="text-xs">(Coming Soon)</span></span>
-                          </label>
-                          <label className="flex items-center space-x-3 cursor-not-allowed">
-                            <input type="checkbox" className="w-4 h-4 text-primary" disabled />
-                            <span className="text-sm font-medium text-gray-400">Disciplinary Incidents <span className="text-xs">(Coming Soon)</span></span>
-                          </label>
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -1099,7 +1093,7 @@ const Education = () => {
                         <div className="bg-red-600 text-white px-6 py-3 rounded-lg shadow-2xl border-2 border-red-400 flex items-center space-x-3">
                           <AlertTriangle className="w-6 h-6" />
                           <div>
-                            <div className="font-bold text-lg">⚠️ Potential Incident Detected</div>
+                            <div className="font-bold text-lg">⚠️ Potential Incident Detected (Disciplinary Action)</div>
                             <div className="text-sm opacity-90">{incidentTimestamp}</div>
                           </div>
                         </div>
