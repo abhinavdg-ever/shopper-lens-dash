@@ -1348,16 +1348,14 @@ const Education = () => {
                           <span>Warning</span>
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {detectedIncidents.length} incident{detectedIncidents.length > 1 ? 's' : ''} detected
+                          {detectedIncidents.length} incident{detectedIncidents.length > 1 ? 's' : ''} detected{' '}
+                          <button 
+                            onClick={() => setShowIncidentDetailsModal(true)}
+                            className="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                          >
+                            (view details)
+                          </button>
                         </p>
-                        <Button 
-                          onClick={() => setShowIncidentDetailsModal(true)}
-                          variant="outline" 
-                          size="sm" 
-                          className="mt-2 w-full"
-                        >
-                          View Details
-                        </Button>
                       </>
                     ) : (
                       <>
