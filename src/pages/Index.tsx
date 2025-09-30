@@ -546,7 +546,7 @@ export default function Index() {
     const loadTrackingData = async () => {
       setIsLoadingTrackingData(true);
       try {
-        const response = await fetch('/tracked_with_metadata_full.json');
+        const response = await fetch('/Retail/Tracking File - Retail.json');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -1453,7 +1453,7 @@ export default function Index() {
                         }
                       }}
                     >
-                      <source src="/Original Video.mp4" type="video/mp4" />
+                      <source src="/Retail/Original Video - Retail.mp4" type="video/mp4" />
                       Your browser does not support the video tag.
                     </video>
                     

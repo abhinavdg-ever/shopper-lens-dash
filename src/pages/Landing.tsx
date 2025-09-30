@@ -41,6 +41,17 @@ const Landing = () => {
       hoverColor: 'hover:bg-orange-600'
     },
     {
+      id: 'education',
+      title: 'Education',
+      subtitle: 'Campus Analytics',
+      description: 'Student engagement tracking and campus safety monitoring.',
+      icon: GraduationCap,
+      enabled: true,
+      features: ['Attendance Tracking', 'Engagement Metrics', 'Safety Monitoring', 'Space Utilization'],
+      color: 'bg-orange-500',
+      hoverColor: 'hover:bg-orange-600'
+    },
+    {
       id: 'restaurants',
       title: 'Restaurants',
       subtitle: 'Food Service Analytics',
@@ -48,17 +59,6 @@ const Landing = () => {
       icon: CreditCard,
       enabled: false,
       features: ['Customer Tracking', 'Queue Analytics', 'Order Analytics', 'Staff Optimization'],
-      color: 'bg-orange-500',
-      hoverColor: 'hover:bg-orange-600'
-    },
-    {
-      id: 'education',
-      title: 'Education',
-      subtitle: 'Campus Analytics',
-      description: 'Student engagement tracking and campus safety monitoring.',
-      icon: GraduationCap,
-      enabled: false,
-      features: ['Attendance Tracking', 'Engagement Metrics', 'Safety Monitoring', 'Space Utilization'],
       color: 'bg-orange-500',
       hoverColor: 'hover:bg-orange-600'
     },

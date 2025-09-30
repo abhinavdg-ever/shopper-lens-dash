@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { ArrowLeft, Factory, TrendingUp, AlertTriangle, CheckCircle, Clock, Users, Zap, Crown, CalendarIcon } from 'lucide-react';
 import { format } from "date-fns";
 import { SectionHeader } from "@/components/dashboard/SectionHeader";
@@ -78,10 +80,29 @@ const Manufacturing = () => {
   // Last synced time state for dynamic counter
   const [lastSyncedTime, setLastSyncedTime] = useState('18:45:00');
 
-  // Video switching state - show processed by default
-  const [isProcessedVideo, setIsProcessedVideo] = useState(true);
-  const [videoCurrentTime, setVideoCurrentTime] = useState(0);
-  const [isVideoPlaying, setIsVideoPlaying] = useState(true);
+  // Tracking data state
+  const [trackingData, setTrackingData] = React.useState<any>(null);
+  const [isLoadingTrackingData, setIsLoadingTrackingData] = React.useState(false);
+  const [currentFrame, setCurrentFrame] = React.useState(0);
+  const [videoFPS, setVideoFPS] = React.useState<number>(30); // Default FPS for manufacturing video
+  
+  // Tracking options
+  const [trackingOptions, setTrackingOptions] = React.useState({
+    viewFacilityZones: false,
+    workers: false,
+    boxes: true  // Default to checked for boxes
+  });
+
+  // Custom object modal state
+  const [showAddCustomObjectModal, setShowAddCustomObjectModal] = React.useState(false);
+  const [customObjectName, setCustomObjectName] = React.useState('');
+  const [customObjectImages, setCustomObjectImages] = React.useState<File[]>([]);
+  const [showCustomObjectSuccessMessage, setShowCustomObjectSuccessMessage] = React.useState(false);
+  const [submittedCustomObjects, setSubmittedCustomObjects] = React.useState<string[]>([]);
+  
+  // Date/Time picker state
+  const [showDateTimeModal, setShowDateTimeModal] = React.useState(false);
+  const [selectedDateTime, setSelectedDateTime] = React.useState<Date | undefined>(new Date());
 
   // Effect to update last synced time every second
   useEffect(() => {
@@ -114,33 +135,171 @@ const Manufacturing = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Effect to sync video time and state
+  // Load tracking data on component mount
   useEffect(() => {
+    const loadTrackingData = async () => {
+      setIsLoadingTrackingData(true);
+      try {
+        const response = await fetch('/Manufacturing/Tracking File - Manufacturing.json');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setTrackingData(data);
+        console.log('Manufacturing tracking data loaded:', data);
+      } catch (error) {
+        console.error('Error loading manufacturing tracking data:', error);
+      } finally {
+        setIsLoadingTrackingData(false);
+      }
+    };
+
+    loadTrackingData();
+  }, []);
+
+  // Draw tracking overlays on canvas
+  useEffect(() => {
+    if (!trackingData || !trackingData.frame_data) {
+      console.log('No tracking data available:', trackingData);
+      return;
+    }
+
+    const drawTrackingOverlay = () => {
+      const canvas = document.getElementById('tracking-canvas') as HTMLCanvasElement;
+      const video = document.getElementById('main-video') as HTMLVideoElement;
+      
+      if (!canvas || !video) {
+        console.log('Canvas or video not found');
+        return;
+      }
+
+      // Set canvas size to match video
+      canvas.width = video.offsetWidth;
+      canvas.height = video.offsetHeight;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Only show overlays if in Processed Video mode
+      if (!isProcessedVideoMain) {
+        console.log('Overlays hidden - original video mode');
+        return;
+      }
+
+      // Get current frame data based on video time
+      const videoTime = video.currentTime;
+      const fps = videoFPS;
+      const currentFrame = Math.floor(videoTime * fps);
+
+      console.log('Drawing overlays - Frame:', currentFrame, 'Time:', videoTime, 'FPS:', fps);
+
+      // Find frame data for current frame
+      const frameData = trackingData.frame_data.find((frame: any) => frame.frame === currentFrame);
+      
+      if (frameData) {
+        console.log('Frame data found:', frameData);
+      }
+
+      // Draw ROI (Region of Interest) if enabled
+      if (trackingOptions.viewFacilityZones && trackingData.ROI) {
+        const roi = trackingData.ROI;
+        if (roi && roi.length === 2) {
+          const [topLeft, bottomRight] = roi;
+          const [x1, y1] = topLeft;
+          const [x2, y2] = bottomRight;
+          
+          const scaleX = canvas.width / (video.videoWidth || 640);
+          const scaleY = canvas.height / (video.videoHeight || 480);
+          
+          const scaledX1 = x1 * scaleX;
+          const scaledY1 = y1 * scaleY;
+          const scaledX2 = x2 * scaleX;
+          const scaledY2 = y2 * scaleY;
+          
+          // Draw ROI rectangle
+          ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)';
+          ctx.lineWidth = 3;
+          ctx.setLineDash([8, 4]);
+          ctx.strokeRect(scaledX1, scaledY1, scaledX2 - scaledX1, scaledY2 - scaledY1);
+          
+          // Draw ROI fill
+          ctx.fillStyle = 'rgba(239, 68, 68, 0.15)';
+          ctx.fillRect(scaledX1, scaledY1, scaledX2 - scaledX1, scaledY2 - scaledY1);
+          
+          // Draw label
+          ctx.fillStyle = 'rgba(156, 163, 175, 0.9)';
+          ctx.fillRect(scaledX1 + 10, scaledY1 + 10, 120, 24);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '12px Arial';
+          ctx.textAlign = 'left';
+          ctx.fillText('Detection Zone', scaledX1 + 20, scaledY1 + 27);
+          
+          ctx.setLineDash([]);
+        }
+      }
+
+      // Draw tracking boxes for boxes (Custom Object 1) if enabled
+      if (trackingOptions.boxes && frameData && frameData.detections) {
+        frameData.detections.forEach((detection: any) => {
+          if (!detection.bbox || !Array.isArray(detection.bbox) || detection.bbox.length < 4) return;
+
+          const [x1, y1, x2, y2] = detection.bbox;
+          const width = x2 - x1;
+          const height = y2 - y1;
+
+          const scaleX = canvas.width / (video.videoWidth || 640);
+          const scaleY = canvas.height / (video.videoHeight || 480);
+
+          const scaledX1 = x1 * scaleX;
+          const scaledY1 = y1 * scaleY;
+          const scaledWidth = width * scaleX;
+          const scaledHeight = height * scaleY;
+
+          // Draw bounding box
+          ctx.strokeStyle = '#00ff00';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(scaledX1, scaledY1, scaledWidth, scaledHeight);
+
+          // Draw label background
+          const labelText = `Box ID: ${detection.id}`;
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+          ctx.fillRect(scaledX1, scaledY1 - 25, 100, 25);
+          
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '12px Arial';
+          ctx.textAlign = 'left';
+          ctx.fillText(labelText, scaledX1 + 5, scaledY1 - 8);
+          
+          // Draw count indicator if available
+          if (detection.count) {
+            ctx.fillStyle = 'rgba(0, 255, 0, 0.7)';
+            ctx.fillRect(scaledX1 + scaledWidth - 40, scaledY1, 40, 20);
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`#${detection.count}`, scaledX1 + scaledWidth - 20, scaledY1 + 15);
+          }
+        });
+      }
+    };
+
+    // Update overlay every frame
     const video = document.getElementById('main-video') as HTMLVideoElement;
-    if (!video) return;
-
-    const handleTimeUpdate = () => {
-      setVideoCurrentTime(video.currentTime);
-    };
-
-    const handlePlay = () => {
-      setIsVideoPlaying(true);
-    };
-
-    const handlePause = () => {
-      setIsVideoPlaying(false);
-    };
-
-    video.addEventListener('timeupdate', handleTimeUpdate);
-    video.addEventListener('play', handlePlay);
-    video.addEventListener('pause', handlePause);
-
-    return () => {
-      video.removeEventListener('timeupdate', handleTimeUpdate);
-      video.removeEventListener('play', handlePlay);
-      video.removeEventListener('pause', handlePause);
-    };
-  }, [isProcessedVideo]);
+    if (video) {
+      video.addEventListener('timeupdate', drawTrackingOverlay);
+      video.addEventListener('seeked', drawTrackingOverlay);
+      video.addEventListener('loadedmetadata', drawTrackingOverlay);
+      
+      return () => {
+        video.removeEventListener('timeupdate', drawTrackingOverlay);
+        video.removeEventListener('seeked', drawTrackingOverlay);
+        video.removeEventListener('loadedmetadata', drawTrackingOverlay);
+      };
+    }
+  }, [trackingData, trackingOptions, videoFPS, isProcessedVideoMain]);
 
 
   // Location options
@@ -508,22 +667,66 @@ const Manufacturing = () => {
                 </div>
 
                 {/* Multi-Select Tracking Controls */}
-                <div className="bg-gradient-to-br from-gray-100 to-gray-200 border border-gray-300 rounded-xl p-6 shadow-sm opacity-60">
-                  <h3 className="text-lg font-semibold mb-4 text-gray-500">Tracking Menu (Coming Soon)</h3>
+                <div className="bg-gradient-to-br from-white to-gray-50 border border-border rounded-xl p-6 shadow-sm">
+                  <h3 className="text-lg font-semibold mb-4 text-foreground">Tracking Menu</h3>
                   <div className="space-y-3">
                     <div>
-                      <label className="flex items-center space-x-3 cursor-not-allowed">
+                      <label className="flex items-center space-x-3 cursor-pointer">
                         <input 
                           type="checkbox" 
                           className="w-4 h-4 text-primary" 
-                          disabled
+                          checked={trackingOptions.viewFacilityZones}
+                          onChange={(e) => setTrackingOptions(prev => ({ ...prev, viewFacilityZones: e.target.checked }))}
                         />
-                        <span className="text-sm font-medium text-gray-400">View Facility Zones</span>
+                        <span className="text-sm font-medium">View Facility Zones</span>
                       </label>
                     </div>
 
                     <div>
-                      <label className="text-sm font-medium text-gray-400 mb-2 block">Object Type</label>
+                      <label className="text-sm font-medium text-foreground mb-2 block">Object Type</label>
+                      <div className="space-y-2 ml-4">
+                        <label className="flex items-center space-x-3 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 text-primary" 
+                            checked={trackingOptions.workers}
+                            onChange={(e) => setTrackingOptions(prev => ({ ...prev, workers: e.target.checked }))}
+                          />
+                          <span className="text-sm font-medium">Factory Worker</span>
+                        </label>
+                        <label className="flex items-center space-x-3 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="w-4 h-4 text-primary" 
+                            checked={trackingOptions.boxes}
+                            onChange={(e) => setTrackingOptions(prev => ({ ...prev, boxes: e.target.checked }))}
+                          />
+                          <span className="text-sm font-medium">Box (Custom Object 1)</span>
+                        </label>
+                        
+                        {/* Display submitted custom objects */}
+                        {submittedCustomObjects.map((objectName, index) => (
+                          <div key={index} className="flex items-center space-x-3 opacity-60 cursor-not-allowed">
+                            <input 
+                              type="checkbox" 
+                              className="w-4 h-4 text-primary" 
+                              disabled
+                            />
+                            <span className="text-sm font-medium text-gray-400">{objectName} (Custom Object {index + 2})</span>
+                          </div>
+                        ))}
+                        
+                        <button 
+                          className="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-700 font-medium ml-6"
+                          onClick={() => setShowAddCustomObjectModal(true)}
+                        >
+                          <span>+ Add Custom Object</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="opacity-60">
+                      <label className="text-sm font-medium text-gray-400 mb-2 block">Special Tags (Coming Soon)</label>
                       <div className="space-y-2 ml-4">
                         <label className="flex items-center space-x-3 cursor-not-allowed">
                           <input 
@@ -531,36 +734,9 @@ const Manufacturing = () => {
                             className="w-4 h-4 text-primary" 
                             disabled
                           />
-                          <span className="text-sm font-medium text-gray-400">Factory Workers</span>
-                        </label>
-                        <label className="flex items-center space-x-3 cursor-not-allowed">
-                          <input 
-                            type="checkbox" 
-                            className="w-4 h-4 text-primary" 
-                            disabled
-                          />
-                          <span className="text-sm font-medium text-gray-400">Custom Object 1</span>
-                        </label>
-                        <label className="flex items-center space-x-3 cursor-not-allowed">
-                          <input 
-                            type="checkbox" 
-                            className="w-4 h-4 text-primary" 
-                            disabled
-                          />
-                          <span className="text-sm font-medium text-gray-400">Custom Object 2</span>
+                          <span className="text-sm font-medium text-gray-400">Quality</span>
                         </label>
                       </div>
-                    </div>
-
-                    <div>
-                      <label className="flex items-center space-x-3 cursor-not-allowed">
-                        <input 
-                          type="checkbox" 
-                          className="w-4 h-4 text-primary" 
-                          disabled
-                        />
-                        <span className="text-sm font-medium text-gray-400">Quality Tags</span>
-                      </label>
                     </div>
                   </div>
                 </div>
@@ -586,9 +762,9 @@ const Manufacturing = () => {
                     </div>
                   </div>
                   
-                  {/* Main Video Display with Switch Functionality */}
+                  {/* Main Video Display with Tracking Overlay */}
                   <div className="relative aspect-video bg-gradient-to-br from-slate-900 to-slate-800 rounded-lg overflow-hidden border border-border/30">
-                    {/* Main Video - Always shows Original Video */}
+                    {/* Main Video */}
                     <video
                       id="main-video"
                       className="w-full h-full object-cover"
@@ -596,26 +772,6 @@ const Manufacturing = () => {
                       loop
                       muted
                       playsInline
-                      src={isProcessedVideo ? "/Processed Video - Manufacturing.mp4" : "/Original Video - Manufacturing.mp4"}
-                      onLoadStart={() => {
-                        console.log('Video load started:', isProcessedVideo ? 'Processed' : 'Original');
-                        console.log('Video src:', isProcessedVideo ? "/Processed Video - Manufacturing.mp4" : "/Original Video - Manufacturing.mp4");
-                      }}
-                      onLoadedData={() => {
-                        console.log('Video data loaded:', isProcessedVideo ? 'Processed' : 'Original');
-                        const video = document.getElementById('main-video') as HTMLVideoElement;
-                        if (video) {
-                          video.currentTime = videoCurrentTime;
-                          if (isVideoPlaying) {
-                            video.play().catch(console.log);
-                          }
-                        }
-                      }}
-                      onError={(e) => {
-                        console.error('Video error:', e);
-                        console.error('Video src:', isProcessedVideo ? "/Processed Video - Manufacturing.mp4" : "/Original Video - Manufacturing.mp4");
-                        console.error('Video error details:', e.currentTarget.error);
-                      }}
                       onEnded={() => {
                         const video = document.getElementById('main-video') as HTMLVideoElement;
                         if (video) {
@@ -624,40 +780,29 @@ const Manufacturing = () => {
                         }
                       }}
                     >
+                      <source src="/Manufacturing/Original Video - Manufacturing.mp4" type="video/mp4" />
                       Your browser does not support the video tag.
                     </video>
                     
+                    {/* Tracking Overlay Canvas */}
+                    <canvas
+                      id="tracking-canvas"
+                      className="absolute top-0 left-0 w-full h-full pointer-events-none"
+                      style={{ zIndex: 10 }}
+                    />
                     
                     {/* Video Type Indicator */}
                     <div className="absolute top-4 left-4 bg-black/70 text-white text-sm px-3 py-1 rounded-lg font-semibold">
-                      {isProcessedVideo ? "Processed Video" : "Original Video"}
+                      {isProcessedVideoMain ? "Processed Video" : "Original Video"}
                     </div>
 
-                    {/* Switch Video Button */}
+                    {/* Toggle Overlay Button */}
                     <button 
                       className="absolute top-4 right-4 bg-blue-500 hover:bg-blue-600 text-white text-sm px-3 py-2 rounded-lg flex items-center shadow-lg transition-colors"
-                      onClick={() => {
-                        const video = document.getElementById('main-video') as HTMLVideoElement;
-                        const currentTime = video ? video.currentTime : 0;
-                        const wasPlaying = video ? !video.paused : false;
-                        
-                        setIsProcessedVideo(!isProcessedVideo);
-                        
-                        // Force video reload after state change
-                        setTimeout(() => {
-                          const newVideo = document.getElementById('main-video') as HTMLVideoElement;
-                          if (newVideo) {
-                            newVideo.load(); // Force reload
-                            newVideo.currentTime = currentTime;
-                            if (wasPlaying) {
-                              newVideo.play().catch(console.log);
-                            }
-                          }
-                        }, 100);
-                      }}
-                      title={`Switch to ${isProcessedVideo ? 'Original' : 'Processed'} Video`}
+                      onClick={() => setIsProcessedVideoMain(!isProcessedVideoMain)}
+                      title={`Switch to ${isProcessedVideoMain ? 'Original' : 'Processed'} View`}
                     >
-                      Switch to {isProcessedVideo ? 'Original' : 'Processed'}
+                      {isProcessedVideoMain ? "Switch to Original" : "Switch to Processed"}
                     </button>
                   </div>
                 </div>
@@ -689,13 +834,13 @@ const Manufacturing = () => {
                             }
                           }
                           
-                          // Add timestamp and video type
+                          // Add timestamp
                           ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
                           ctx.fillRect(10, canvas.height - 60, 200, 50);
                           ctx.fillStyle = '#ffffff';
                           ctx.font = '14px Arial';
                           ctx.fillText(`Captured: ${new Date().toLocaleString()}`, 20, canvas.height - 35);
-                          ctx.fillText(`Mode: ${isProcessedVideo ? 'Processed' : 'Original'}`, 20, canvas.height - 15);
+                          ctx.fillText(`Mode: ${isProcessedVideoMain ? 'Processed' : 'Original'}`, 20, canvas.height - 15);
                           
                           // Download the image
                           const link = document.createElement('a');
@@ -714,37 +859,27 @@ const Manufacturing = () => {
                   </button>
                   
                   <button 
-                    className={`${isVideoPlaying ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600'} text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2`}
+                    className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
                     onClick={() => {
                       const mainVideo = document.getElementById('main-video') as HTMLVideoElement;
                       if (mainVideo) {
-                        if (isVideoPlaying) {
-                          mainVideo.pause();
-                        } else {
+                        if (mainVideo.paused) {
                           mainVideo.play().catch(console.log);
+                        } else {
+                          mainVideo.pause();
                         }
                       }
                     }}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      {isVideoPlaying ? (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      ) : (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      )}
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span>{isVideoPlaying ? 'Pause Tracking' : 'Resume Tracking'}</span>
+                    <span>Pause Tracking</span>
                   </button>
                   
                   <button 
                     className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2"
-                    onClick={() => {
-                      const mainVideo = document.getElementById('main-video') as HTMLVideoElement;
-                      if (mainVideo) {
-                        mainVideo.currentTime = 0;
-                        mainVideo.play();
-                      }
-                    }}
+                    onClick={() => setShowDateTimeModal(true)}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -823,6 +958,183 @@ const Manufacturing = () => {
 
         </Tabs>
       </main>
+
+      {/* Date/Time Picker Modal */}
+      <Dialog open={showDateTimeModal} onOpenChange={setShowDateTimeModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Go to Particular Date/Time</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Select Date and Time</label>
+              <Input
+                type="datetime-local"
+                className="w-full"
+                value={selectedDateTime ? format(selectedDateTime, "yyyy-MM-dd'T'HH:mm") : ''}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setSelectedDateTime(new Date(e.target.value));
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-1 text-sm text-muted-foreground">
+              <p>• Cannot go more than 2 days back from today</p>
+              <p>• Up to 48 hours of data is stored</p>
+              <p>• Contact Admin for longer timeframe</p>
+            </div>
+          </div>
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setShowDateTimeModal(false)}>
+              Cancel
+            </Button>
+            <Button 
+              className="bg-teal-500 hover:bg-teal-600"
+              onClick={() => {
+                // Jump to specific time logic here
+                const video = document.getElementById('main-video') as HTMLVideoElement;
+                if (video && selectedDateTime) {
+                  // For demo purposes, just restart the video
+                  video.currentTime = 0;
+                  video.play();
+                }
+                setShowDateTimeModal(false);
+              }}
+            >
+              Go to Time
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Custom Object Modal */}
+      <Dialog open={showAddCustomObjectModal} onOpenChange={setShowAddCustomObjectModal}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Custom Object for Training</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Object Name</label>
+              <Input
+                placeholder="e.g., Safety Helmet, Tool Box, etc."
+                value={customObjectName}
+                onChange={(e) => setCustomObjectName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Upload Images (3-10 required)</label>
+              <Input
+                id="file-upload"
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  if (files.length + customObjectImages.length >= 3 && files.length + customObjectImages.length <= 10) {
+                    setCustomObjectImages([...customObjectImages, ...files]);
+                  } else if (files.length + customObjectImages.length > 10) {
+                    alert('Maximum 10 images allowed');
+                  } else {
+                    setCustomObjectImages([...customObjectImages, ...files]);
+                  }
+                  // Reset file input
+                  e.target.value = '';
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                {customObjectImages.length > 0 
+                  ? `${customObjectImages.length} image(s) selected (${Math.max(0, 3 - customObjectImages.length)} more required)` 
+                  : 'Please select 3-10 images of the object from different angles'}
+              </p>
+              
+              {/* Display uploaded files with delete option */}
+              {customObjectImages.length > 0 && (
+                <div className="mt-3 space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50">
+                  {customObjectImages.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between bg-white border rounded px-3 py-2 text-sm">
+                      <div className="flex items-center space-x-2 flex-1 min-w-0">
+                        <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span className="truncate">{file.name}</span>
+                        <span className="text-xs text-gray-500 flex-shrink-0">({(file.size / 1024).toFixed(1)} KB)</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newFiles = customObjectImages.filter((_, i) => i !== index);
+                          setCustomObjectImages(newFiles);
+                        }}
+                        className="ml-2 text-red-500 hover:text-red-700 flex-shrink-0"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-sm text-amber-800">
+                <strong>Note:</strong> Upload clear images of the object from multiple angles for better detection accuracy.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end space-x-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowAddCustomObjectModal(false);
+                setCustomObjectName('');
+                setCustomObjectImages([]);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                if (customObjectName && customObjectImages.length >= 3 && customObjectImages.length <= 10) {
+                  // Submit logic here (API call)
+                  setSubmittedCustomObjects([...submittedCustomObjects, customObjectName]);
+                  setShowAddCustomObjectModal(false);
+                  setShowCustomObjectSuccessMessage(true);
+                  setCustomObjectName('');
+                  setCustomObjectImages([]);
+                  
+                  // Hide success message after 5 seconds
+                  setTimeout(() => {
+                    setShowCustomObjectSuccessMessage(false);
+                  }, 5000);
+                } else {
+                  alert('Please provide object name and 3-10 images');
+                }
+              }}
+              disabled={!customObjectName || customObjectImages.length < 3 || customObjectImages.length > 10}
+            >
+              Submit for Training
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success Message for Custom Object Submission */}
+      {showCustomObjectSuccessMessage && (
+        <div className="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg max-w-md z-50">
+          <div className="flex items-start space-x-3">
+            <CheckCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+            <div>
+              <h4 className="font-semibold mb-1">Request Submitted Successfully!</h4>
+              <p className="text-sm">
+                Thanks for submitting a request for Custom Object. Team will train the model and enable it within 3-5 working days.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
