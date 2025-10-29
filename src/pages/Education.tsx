@@ -92,7 +92,8 @@ const Education = () => {
   const [videoSources, setVideoSources] = useState([
     { id: 1, name: "Class 1-A", status: "live", quality: "1080p" },
     { id: 2, name: "Class 2-B", status: "live", quality: "720p" },
-    { id: 3, name: "Main Ground", status: "offline", quality: "720p" }
+    { id: 3, name: "Class 3-B", status: "live", quality: "720p" },
+    { id: 4, name: "Main Ground", status: "offline", quality: "720p" }
   ]);
   const [isAddSourceModalOpen, setIsAddSourceModalOpen] = useState(false);
   const [showDeleteSourceConfirm, setShowDeleteSourceConfirm] = useState(false);
@@ -115,7 +116,7 @@ const Education = () => {
   const [showIncidentWarning, setShowIncidentWarning] = useState(false);
   const [incidentTimestamp, setIncidentTimestamp] = useState<string>('');
   const [safetyStatus, setSafetyStatus] = useState<'Safe' | 'Warning'>('Safe');
-  const [detectedIncidents, setDetectedIncidents] = useState<Array<{type: string, time: string}>>([]);
+  const [detectedIncidents, setDetectedIncidents] = useState<Array<{type: string, time: string, class: string}>>([]);
   const [showIncidentDetailsModal, setShowIncidentDetailsModal] = useState(false);
   
   // Update clock every second starting from 14:30 (pause when tracking is paused)
@@ -139,6 +140,8 @@ const Education = () => {
       setVideoFPS(14.79);
     } else if (selectedVideoSource === 'class-2b') {
       setVideoFPS(20);
+    } else if (selectedVideoSource === 'class-3b') {
+      setVideoFPS(30);
     }
   }, [selectedVideoSource]);
   
@@ -158,9 +161,18 @@ const Education = () => {
     const loadTrackingData = async () => {
       setIsLoadingTrackingData(true);
       try {
-        const jsonFile = selectedVideoSource === 'class-1a' 
-          ? '/Education/Tracking File - Education 1.json'
-          : '/Education/Tracking File - Education 2.json';
+        let jsonFile = '';
+        if (selectedVideoSource === 'class-1a') {
+          jsonFile = '/Education/Tracking File - Education 1.json';
+        } else if (selectedVideoSource === 'class-2b') {
+          jsonFile = '/Education/Tracking File - Education 2.json';
+        } else if (selectedVideoSource === 'class-3b') {
+          jsonFile = '/Education/Tracking File - Education 3.json';
+        } else {
+          // Skip loading for other sources
+          setIsLoadingTrackingData(false);
+          return;
+        }
         
         const response = await fetch(jsonFile);
         if (!response.ok) {
@@ -340,6 +352,14 @@ const Education = () => {
           }
         });
       }
+      // Also check teachers array for potential incidents
+      if (frameData.teachers) {
+        frameData.teachers.forEach((teacher: any) => {
+          if (teacher.potential_incident === true) {
+            hasIncident = true;
+          }
+        });
+      }
 
       // If incident detected, show warning
       if (hasIncident && !showIncidentWarning) {
@@ -348,17 +368,53 @@ const Education = () => {
         const minutes = currentTime.getMinutes();
         const timeString = `${hours}:${minutes.toString().padStart(2, '0')}`;
         
-        setIncidentTimestamp(timeString);
-        setSafetyStatus('Warning');
-        setShowIncidentWarning(true);
+        // Get class name based on selected video source
+        let className = 'Main Ground';
+        if (selectedVideoSource === 'class-1a') {
+          className = 'Class 1-A';
+        } else if (selectedVideoSource === 'class-2b') {
+          className = 'Class 2-B';
+        } else if (selectedVideoSource === 'class-3b') {
+          className = 'Class 3-B';
+        }
         
-        // Add incident to the list
-        setDetectedIncidents(prev => [...prev, { type: 'Disciplinary Action', time: timeString }]);
+        // Determine incident type based on video source
+        const incidentType = selectedVideoSource === 'class-3b' ? 'Fight' : 'Disciplinary Action';
         
-        // Hide warning after 5 seconds
-        setTimeout(() => {
-          setShowIncidentWarning(false);
-        }, 5000);
+        // Check if an incident already exists for this class and minute to prevent duplicates
+        setDetectedIncidents(prev => {
+          const alreadyExists = prev.some(
+            incident => incident.class === className && incident.time === timeString
+          );
+          
+          // Only add if it doesn't already exist for this class and minute
+          if (!alreadyExists) {
+            setIncidentTimestamp(timeString);
+            setSafetyStatus('Warning');
+            setShowIncidentWarning(true);
+            
+            // Hide warning after 5 seconds
+            setTimeout(() => {
+              setShowIncidentWarning(false);
+            }, 5000);
+            
+            return [...prev, { 
+              type: incidentType, 
+              time: timeString, 
+              class: className 
+            }];
+          }
+          
+          // Still show warning if duplicate but don't add to list
+          setIncidentTimestamp(timeString);
+          setSafetyStatus('Warning');
+          setShowIncidentWarning(true);
+          setTimeout(() => {
+            setShowIncidentWarning(false);
+          }, 5000);
+          
+          return prev;
+        });
       }
     };
 
@@ -378,7 +434,7 @@ const Education = () => {
       // When paused, draw one final frame and keep it
       drawTrackingOverlay();
     }
-  }, [trackingData, trackingOptions, videoFPS, isProcessedVideoMain, isTrackingPaused, showIncidentWarning, currentTime]);
+  }, [trackingData, trackingOptions, videoFPS, isProcessedVideoMain, isTrackingPaused, showIncidentWarning, currentTime, selectedVideoSource]);
 
   // Campus options
   const campusOptions = [
@@ -935,8 +991,14 @@ const Education = () => {
                   </div>
                   <div className="space-y-2">
                     {videoSources.map((source) => {
-                      const sourceId = source.name === 'Class 1-A' ? 'class-1a' : 
-                                       source.name === 'Class 2-B' ? 'class-2b' : 'main-ground';
+                      let sourceId = 'main-ground';
+                      if (source.name === 'Class 1-A') {
+                        sourceId = 'class-1a';
+                      } else if (source.name === 'Class 2-B') {
+                        sourceId = 'class-2b';
+                      } else if (source.name === 'Class 3-B') {
+                        sourceId = 'class-3b';
+                      }
                       const isActive = selectedVideoSource === sourceId;
                       
                       return (
@@ -1090,7 +1152,8 @@ const Education = () => {
                     <div className="flex items-center space-x-4">
                       <h3 className="text-lg font-semibold">
                         {selectedVideoSource === 'class-1a' ? 'Class 1-A' : 
-                         selectedVideoSource === 'class-2b' ? 'Class 2-B' : 'Main Ground'}
+                         selectedVideoSource === 'class-2b' ? 'Class 2-B' :
+                         selectedVideoSource === 'class-3b' ? 'Class 3-B' : 'Main Ground'}
                       </h3>
                       <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                         <span>{currentTime.toLocaleDateString()}</span>
@@ -1117,7 +1180,9 @@ const Education = () => {
                           <AlertTriangle className="w-6 h-6" />
                           <div>
                             <div className="font-bold text-lg">⚠️ Potential Incident Detected</div>
-                            <div className="text-base font-semibold">Disciplinary Action (Time: {incidentTimestamp})</div>
+                            <div className="text-base font-semibold">
+                              {selectedVideoSource === 'class-3b' ? 'Fight' : 'Disciplinary Action'} ({selectedVideoSource === 'class-1a' ? 'Class 1-A' : selectedVideoSource === 'class-2b' ? 'Class 2-B' : selectedVideoSource === 'class-3b' ? 'Class 3-B' : 'Main Ground'} {incidentTimestamp})
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1133,9 +1198,14 @@ const Education = () => {
                       preload="auto"
                       onLoadStart={() => {
                         console.log('Video loading:', selectedVideoSource);
-                        const videoSrc = selectedVideoSource === 'class-1a' 
-                          ? '/Education/Original Video - Education 1.mp4' 
-                          : '/Education/Original Video - Education 2.mp4';
+                        let videoSrc = '/Education/Original Video - Education 2.mp4';
+                        if (selectedVideoSource === 'class-1a') {
+                          videoSrc = '/Education/Original Video - Education 1.mp4';
+                        } else if (selectedVideoSource === 'class-2b') {
+                          videoSrc = '/Education/Original Video - Education 2.mp4';
+                        } else if (selectedVideoSource === 'class-3b') {
+                          videoSrc = '/Education/Original Video - Education 3.mp4';
+                        }
                         console.log('Video src:', videoSrc);
                         console.log('Full URL:', window.location.origin + videoSrc);
                       }}
@@ -1169,9 +1239,14 @@ const Education = () => {
                       }}
                     >
                       <source 
-                        src={selectedVideoSource === 'class-1a' 
-                          ? '/Education/Original Video - Education 1.mp4' 
-                          : '/Education/Original Video - Education 2.mp4'
+                        src={
+                          selectedVideoSource === 'class-1a' 
+                            ? '/Education/Original Video - Education 1.mp4'
+                            : selectedVideoSource === 'class-2b'
+                            ? '/Education/Original Video - Education 2.mp4'
+                            : selectedVideoSource === 'class-3b'
+                            ? '/Education/Original Video - Education 3.mp4'
+                            : '/Education/Original Video - Education 2.mp4'
                         } 
                         type="video/mp4"
                       />
@@ -1228,7 +1303,14 @@ const Education = () => {
                             ctx.fillRect(10, snapshotCanvas.height - 80, 300, 70);
                             ctx.fillStyle = '#ffffff';
                             ctx.font = '16px Arial';
-                            const className = selectedVideoSource === 'class-1a' ? 'Class 1-A' : 'Class 2-B';
+                            let className = 'Main Ground';
+                            if (selectedVideoSource === 'class-1a') {
+                              className = 'Class 1-A';
+                            } else if (selectedVideoSource === 'class-2b') {
+                              className = 'Class 2-B';
+                            } else if (selectedVideoSource === 'class-3b') {
+                              className = 'Class 3-B';
+                            }
                             ctx.fillText(`Class: ${className}`, 20, snapshotCanvas.height - 55);
                             ctx.fillText(`Captured: ${new Date().toLocaleString()}`, 20, snapshotCanvas.height - 35);
                             ctx.fillText(`Mode: ${isProcessedVideoMain ? 'Processed' : 'Original'}`, 20, snapshotCanvas.height - 15);
@@ -1302,7 +1384,7 @@ const Education = () => {
                   <CardContent>
                     <div className="text-3xl font-bold text-green-600">{liveStudentCount}</div>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Out of {selectedVideoSource === 'class-2b' ? '15' : '30'} total
+                      Out of {selectedVideoSource === 'class-2b' ? '15' : selectedVideoSource === 'class-3b' ? '25' : '30'} total
                     </p>
                   </CardContent>
                 </Card>
@@ -1322,7 +1404,7 @@ const Education = () => {
                     <CardTitle className="text-sm font-medium text-muted-foreground">Teacher Present</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {selectedVideoSource === 'class-1a' ? (
+                    {selectedVideoSource === 'class-1a' || selectedVideoSource === 'class-3b' ? (
                       <>
                         <div className="text-3xl font-bold text-green-600">Present</div>
                         <p className="text-sm text-muted-foreground mt-1">Active in class</p>
@@ -1483,7 +1565,7 @@ const Education = () => {
                     <AlertTriangle className="w-5 h-5 text-red-600" />
                     <div>
                       <div className="font-semibold text-sm">{incident.type}</div>
-                      <div className="text-xs text-muted-foreground">Time: {incident.time}</div>
+                      <div className="text-xs text-muted-foreground">{incident.class} {incident.time}</div>
                     </div>
                   </div>
                 </div>
